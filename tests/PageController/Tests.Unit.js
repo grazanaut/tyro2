@@ -29,63 +29,24 @@ loggedIn, dashboard -> loggedIn, setup, campaigns
 */
 
 var fixtures = {};
-fixtures.main = {	
-	"loggedOut": {
-		id:"loggedOut",
-		view: {
-			render: function() {},
-			teardown: function() {},
-			container: "some container"
-		},
-		active: false,
-		partialViewId: null,
-		childViews: []
-	},
-	"loggedIn": {
-		id:"loggedIn",
-		view: {
-			render: function() {},
-			teardown: function() {},
-			container: "some container"
-		},
-		active: false,
-		partialViewId: null,
-		childViews: []
-	},
-	"dashboard": {
-		id:"dashboard",
-		view: {
-			render: function() {},
-			teardown: function() {},
-			container: "#main"
-		},
-		active: false,
-		partialViewId: "loggedIn",
-		childViews: []
-	},
-	"setup": {
-		id: "setup",
-		view: {
-			render: function() {},
-			teardown: function() {},
-			container: "#main"
-		},
-		active: false,
-		partialViewId: "loggedIn",
-		childViews: []
-	},
-	"campaigns": {
-		id: "campaigns",
-		view: {
-			render: function() {},
-			teardown: function() {},
-			container: "some container"
-		},
-		active: false,
-		partialViewId: "setup",
-		childViews: []
-	}
-}
+
+fixtures.MockView = function(container) {
+    this.render = function(){};
+    this.teardown = function(){};
+    this.container = container;
+};
+fixtures.getCopyOfMain = function(){
+  var MockView = fixtures.MockView;
+  var f = {};
+  f.loggedOut = new Tyro.PartialViewCollectionItem("loggedOut", null, new MockView("some container"));
+  f.loggedIn = new Tyro.PartialViewCollectionItem("loggedIn", null, new MockView("some container"));
+  f.dashboard = new Tyro.PartialViewCollectionItem("dashboard", f.loggedIn, new MockView("#main"));
+  f.setup = new Tyro.PartialViewCollectionItem("setup", f.loggedIn, new MockView("#main"));
+  f.campaigns = new Tyro.PartialViewCollectionItem("campaigns", f.setup, new MockView("some container"));
+  return f;
+};
+fixtures.main = fixtures.getCopyOfMain(); //backward-compatibility
+
 
 function stubFn(returnValue, arrayToPopulate) {
   var fn = function () {
@@ -116,6 +77,45 @@ test("Every instance of Tyro.PageController should have a partialViews object pr
 	equals(typeof pc.partialViews, "object");
 });
 
+module("new Tyro.PartialViewCollectionItem()");
+
+test("When instantiating without an 'id' argument an error is thrown.", function() {
+	raises(function() {
+		new Tyro.PartialViewCollectionItem(null, null, new fixtures.MockView("some container"));
+	}, "raised");
+});
+
+test("When instantiating with a 'parent' argument that is not null and is not a PartialViewCollectionItem an error is thrown.", function() {
+	raises(function() {
+		new Tyro.PartialViewCollectionItem("some id", {}, new fixtures.MockView("some container"));
+	}, "raised");
+});
+
+test("When instantiating with a 'view' argument that is not null and is not a valid view an error is thrown.", function() {
+	raises(function() {
+		new Tyro.PartialViewCollectionItem("some id", null, {});
+	}, "raised");
+
+  raises(function() {
+    new Tyro.PartialViewCollectionItem("some id", null, {render: function() {}});
+  }, "raised");
+
+  raises(function() {
+    new Tyro.PartialViewCollectionItem("some id", null, {render: function() {}, teardown: function() {}});
+  }, "raised");
+});
+
+test("When instantiating with a null 'parent' argument no error is thrown.", function() {
+	var item = new Tyro.PartialViewCollectionItem("some id", null, new fixtures.MockView("some container"));
+  equals(item instanceof Tyro.PartialViewCollectionItem, true);
+});
+
+test("When instantiating with a valid 'parent' argument no error is thrown.", function() {
+	var item = new Tyro.PartialViewCollectionItem("some id", null, new fixtures.MockView("some container"));
+  var item2 = new Tyro.PartialViewCollectionItem("some id2", item, new fixtures.MockView("some container2"));
+  equals(item2 instanceof Tyro.PartialViewCollectionItem, true);
+});
+
 module("addPartialView()");
 
 test("Every instance of Tyro.PageController should have an addPartialView() method.", function() {
@@ -130,124 +130,23 @@ test("When adding a partial-view with no arguments an error is thrown.", functio
 	}, "raised");
 });
 
-test("When adding a partial-view without an 'id' property an error is thrown.", function() {
+test("When adding a partial-view with argument that is not a Tyro.PartialViewCollectionItem an error is thrown.", function() {
 	var pc = new Tyro.PageController();
 	raises(function() {
 		pc.addPartialView({});
 	}, "raised");
 });
 
-test("When adding a partial-view without an 'active' property an error is thrown.", function() {
+test("When adding a partial-view with argument that is a Tyro.PartialViewCollectionItem no error is thrown.", function() {
 	var pc = new Tyro.PageController();
-	raises(function() {
-		pc.addPartialView({
-			id: "setup"		
-		});
-	}, "raised");
-});
-
-test("When adding a partial-view without a 'partialViewId' property an error is thrown.", function() {
-	var pc = new Tyro.PageController();
-	raises(function() {
-		pc.addPartialView({
-			id: "setup",
-			active: true
-		});
-	}, "raised");
-});
-test("When adding a partial-view without a 'childViews' property an error is thrown.", function() {
-	var pc = new Tyro.PageController();
-	raises(function() {
-		pc.addPartialView({
-			id: "setup",
-			active: true,
-			partialViewId: "loggedIn"
-		});
-	}, "raised");
-});
-
-test("When adding a partial-view without a 'view' property an error is thrown.", function() {
-	var pc = new Tyro.PageController();
-	raises(function() {
-		pc.addPartialView({
-			id: "setup",
-			active: true,
-			partialViewId: "loggedIn",
-			childViews: []
-		});
-	}, "raised");
-});
-
-test("When adding a partial-view with a malformed 'view' property an error is thrown.", function() {
-	var pc = new Tyro.PageController();
-	raises(function() {
-		pc.addPartialView({
-			id: "setup",
-			active: true,
-			partialViewId: "loggedIn",
-			childViews: [],
-			view: {}
-		});
-	}, "raised");
-	
-	raises(function() {
-		pc.addPartialView({
-			id: "setup",
-			active: true,
-			partialViewId: "loggedIn",
-			childViews: [],
-			view: {render: function() {}}
-		});
-	}, "raised");
-	
-	raises(function() {
-		pc.addPartialView({
-			id: "setup",
-			active: true,
-			partialViewId: "loggedIn",
-			childViews: [],
-			view: {render: function() {}, teardown: function() {}}
-		});
-	}, "raised");
-	
-});
-
-test("When adding a partialView with a parent partialViewId of null, it should be accepted.", function() {
-  var pc = new Tyro.PageController();
-  
-  var newPv = {
-		id: "setup",
-		active: false,
-		partialViewId: "loggedIn",
-		childViews: [],
-		partialViewId: null,
-		view: {
-			render: function() {},
-			container: "#main",
-			teardown: function() {}
-		}
-	};
-  
-  pc.addPartialView(newPv);
-	
-	equals(pc.partialViews["setup"], newPv);
-	
+	pc.addPartialView(fixtures.getCopyOfMain().loggedIn);
+  equals(true, true);
 });
 
 
 test("When adding a valid partialView it should be added to the partialViews collection.", function() {
 	var pc = new Tyro.PageController();
-	pc.addPartialView({
-		id: "setup",
-		active: false,
-		partialViewId: "loggedIn",
-		childViews: [],
-		view: {
-			render: function() {},
-			container: "#main",
-			teardown: function() {}
-		}
-	});
+	pc.addPartialView(fixtures.getCopyOfMain().setup);
 	
 	equals(typeof pc.partialViews["setup"], "object");
 	
@@ -257,40 +156,32 @@ module("getPartialViewsChildrenActive()");
 
 test("This should return the active children partial-views as an array.", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true,{}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	pc.partialViews["loggedIn"].active = true;
 	pc.partialViews["setup"].active = true;
 	pc.partialViews["campaigns"].active = true;
 	
 	var result = pc.getPartialViewsChildrenActive("loggedIn");
-	equals(result[0], pc.partialViews["campaigns"]);
-	equals(result[1], pc.partialViews["setup"]);
+  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
+  //double-linked-tree structure
+	equals(result[0] === pc.partialViews["campaigns"], true);
+	equals(result[1] === pc.partialViews["setup"], true);
 });
 
 test("This should return the active children partial-views as an array.", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	pc.partialViews["loggedIn"].active = true;
 	pc.partialViews["setup"].active = true;
 	pc.partialViews["campaigns"].active = true;
 	
 	var result = pc.getPartialViewsChildrenActive("setup");
-	equals(result[0], pc.partialViews["campaigns"]);
+  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
+  //double-linked-tree structure
+	equals(result[0] === pc.partialViews["campaigns"], true);
 	
 	var result2 = pc.getPartialViewsChildrenActive("campaigns");
 	equals(result2.length, 0);
-	
-});
-
-module("getPartialViewTopLevel()");
-
-test("When retrieving the top level partial view, it should return the partial view.", function() {
-	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true,{}, fixtures.main);
-	
-	var result = pc.getPartialViewTopLevel("campaigns");
-	
-	equals(pc.partialViews["loggedIn"], result);
 	
 });
 
@@ -298,14 +189,14 @@ module("getPartialViewsNonAttachedActive()");
 
 test("When no partial-view is specificed, an empty array should be returned.", function() {
 	var pc = new Tyro.PageController();	
-	pc.partialViews = $.extend(true,{}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var result = pc.getPartialViewsNonAttachedActive();
 	ok($.isArray(result));
 });
 
 test("When one non attached partial-view is active, that partial-view should be returned in an array.", function() {
 	var pc = new Tyro.PageController();	
-	pc.partialViews = $.extend(true,{}, fixtures.main);
+  pc.partialViews = fixtures.getCopyOfMain();
 	pc.partialViews["loggedOut"].active = true;
 	var result = pc.getPartialViewsNonAttachedActive("setup");
 	equals(result[0], pc.partialViews["loggedOut"]);
@@ -313,18 +204,20 @@ test("When one non attached partial-view is active, that partial-view should be 
 
 test("When there are multiple non attached active partial-views, they should be returned in an array.", function() {
 	var pc = new Tyro.PageController();	
-	pc.partialViews = $.extend(true,{}, fixtures.main);
+  pc.partialViews = fixtures.getCopyOfMain();
 	pc.partialViews["loggedIn"].active = true;
 	pc.partialViews["dashboard"].active = true;
 	var result = pc.getPartialViewsNonAttachedActive("loggedOut");
 	equals(result.length, 2);
-	equals(result[0], pc.partialViews["dashboard"]);
-	equals(result[1], pc.partialViews["loggedIn"]);
+  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
+  //double-linked-tree structure
+	equals(result[0] === pc.partialViews["dashboard"], true);
+	equals(result[1] === pc.partialViews["loggedIn"], true);
 });
 
 test("When there are no non attached active partial-views, it should return an empty array.", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var setupHomeView = { teardown: stubFn() }
 	pc.partialViews["loggedIn"].active = true;
 	pc.partialViews["setup"].active = true;
@@ -338,16 +231,18 @@ test("When there are no non attached active partial-views, it should return an e
 
 test("When getting non attached active partial-views it should return them in child-to-parent order.", function() {
   var pc = new Tyro.PageController();
-  pc.partialViews = $.extend(true, {}, fixtures.main);
+  pc.partialViews = fixtures.getCopyOfMain();
   pc.partialViews["loggedIn"].active = true;
   pc.partialViews["setup"].active = true;
   pc.partialViews["campaigns"].active = true;
   
   var result = pc.getPartialViewsNonAttachedActive("loggedOut");
   
-  equals(result[0], pc.partialViews["campaigns"]);
-  equals(result[1], pc.partialViews["setup"]);
-  equals(result[2], pc.partialViews["loggedIn"]);
+  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
+  //double-linked-tree structure
+  equals(result[0] === pc.partialViews["campaigns"], true);
+  equals(result[1] === pc.partialViews["setup"], true);
+  equals(result[2] === pc.partialViews["loggedIn"], true);
 });
 
 module("getPartialViewsInActiveParents()");
@@ -360,25 +255,29 @@ test("Every instance of Tyro.PageController should have a getPartialViewsInActiv
 test("When there are partial-views that are inactive and parents it should return them in an array.", function() {
 	var pc = new Tyro.PageController();	
 	
-	pc.partialViews = $.extend(true,{}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var result1 = pc.getPartialViewsInActiveParents("loggedOut");
 	equals(result1.length, 1);
 	equals(result1[0], pc.partialViews["loggedOut"]);
 	
 	//1
-	pc.partialViews = $.extend(true,{}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var result2 = pc.getPartialViewsInActiveParents("dashboard");
 	equals(result2.length, 2);
-	equals(result2[0], pc.partialViews["loggedIn"]);
-	equals(result2[1], pc.partialViews["dashboard"]);
+  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
+  //double-linked-tree structure
+	equals(result2[0] === pc.partialViews["loggedIn"], true);
+	equals(result2[1] === pc.partialViews["dashboard"], true);
 	
 	//2
-	pc.partialViews = $.extend(true,{}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var result3 = pc.getPartialViewsInActiveParents("campaigns");
 	equals(result3.length, 3);
-	equals(result3[0], pc.partialViews["loggedIn"]);
-	equals(result3[1], pc.partialViews["setup"]);
-	equals(result3[2], pc.partialViews["campaigns"]);
+  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
+  //double-linked-tree structure
+	equals(result3[0] === pc.partialViews["loggedIn"], true);
+	equals(result3[1] === pc.partialViews["setup"], true);
+	equals(result3[2] === pc.partialViews["campaigns"], true);
 	
 });
 
@@ -418,7 +317,7 @@ test("Every instance of Tyro.PageController should have a teardownPartialViews()
 test("When tearing down many partial-views, it should delegate to the teardownPartialView() method.", function() {
 	var pc = new Tyro.PageController();
 	pc.teardownPartialView = stubFn();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	pc.partialViews["setup"].active = true;
 	pc.partialViews["loggedIn"].active = true;
 	var arr = [pc.partialViews["setup"], pc.partialViews["loggedIn"]]
@@ -427,31 +326,6 @@ test("When tearing down many partial-views, it should delegate to the teardownPa
 	
 	equals(pc.teardownPartialView.callCount, 2);
 	equals(pc.teardownPartialView.args[0], "loggedIn");
-});
-
-module("getPartialViewDomContainer()");
-
-test("Every instance of Tyro.PageController should have a getPartialViewDomContainer() method.", function() {
-	var pc = new Tyro.PageController();	
-	equals(typeof pc.getPartialViewDomContainer, "function");
-});
-
-test("When the partial-view doesn't exist it should return null.", function() {
-	var pc = new Tyro.PageController();
-	
-	var result = pc.getPartialViewDomContainer();
-	
-	equals(result, null);
-});
-
-test("When the partial-view does exist it should return the view container.", function() {
-	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
-	
-	var result = pc.getPartialViewDomContainer("setup");
-	
-	equals(result, "#main");
-	
 });
 
 module("teardownChildView()");
@@ -488,7 +362,7 @@ test("When adding a view without a teardown method it should throw an error.", f
 
 test("When adding a view to a partial-view it should be added to it's childViews array.", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	
 	var view = {
 		render: stubFn(),
@@ -504,7 +378,7 @@ test("When adding a view to a partial-view it should be added to it's childViews
 
 test("When adding a view that has the same container as a view already in the partial-views childViews array, teardown and remove it first.",  function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var view1 = { teardown: stubFn(), container: "container1" };
 	var view2 = { teardown: stubFn(), container: "container2" };
 	var view3 = { teardown: stubFn(), container: "container1" };
@@ -528,7 +402,7 @@ test("Every instance of Tyro.PageController should have an isPartialViewActive()
 
 test("When a view is active, this should return true", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	pc.partialViews["setup"].active = true;
 	var result = pc.isPartialViewActive("setup");
 	
@@ -537,7 +411,7 @@ test("When a view is active, this should return true", function() {
 
 test("When a view is active, this should return true", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var result = pc.isPartialViewActive("setup");
 	
 	ok(!result);
@@ -552,7 +426,7 @@ test("Every instance of Tyro.PageController should have a renderPartialViews() m
 
 test("When invoking this method, it should render each of the partial-views view and set to active", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var pvRender1 = stubFn();
 	var pvRender2 = stubFn();
 	pc.partialViews["loggedIn"].view = { render: pvRender1 };
@@ -586,7 +460,7 @@ module("render() - partial-view is already active");
 
 test("It should not attempt to teardown non attached active partial-views", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);	
+	pc.partialViews = fixtures.getCopyOfMain();	
 	var loggedOutTeardown = stubFn();
 	pc.partialViews["loggedOut"].view = {teardown: loggedOutTeardown}
 	pc.partialViews["loggedIn"].active = true;
@@ -600,7 +474,7 @@ test("It should not attempt to teardown non attached active partial-views", func
 test("It should not attempt to re-render the parents.", function() {
 	// setup
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var pvRender1 = stubFn();
 	var pvRender2 = stubFn();
 	pc.partialViews["loggedIn"].active = true;
@@ -619,7 +493,7 @@ test("It should not attempt to re-render the parents.", function() {
 test("It should teardown the active-children partial-views.", function() {
 	// setup
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var pvTeardown = stubFn();
 	pc.partialViews["loggedIn"].active = true;
 	pc.partialViews["setup"].active = true;
@@ -637,7 +511,7 @@ module("render() - partial-view is in-active");
 
 test("Its parent partial-views should be rendered.", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	
 	var order = [];
 	
@@ -662,7 +536,7 @@ test("Its parent partial-views should be rendered.", function() {
 
 test("It should teardown non attached partial views.", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var order = [];
 	var loginView = { teardown: stubFn(null, order) };
 	var loggedOutPartialView = { teardown: stubFn(null, order) };
@@ -683,7 +557,7 @@ test("It should teardown non attached partial views.", function() {
 
 test("It should teardown non attached partial views (in order).", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);	
+	pc.partialViews = fixtures.getCopyOfMain();	
 	var order = [];	
 	var dashboardHomeView = { teardown: stubFn(null, order) };
 	var loggedInPartialView = { teardown: stubFn(null, order) };
@@ -708,7 +582,7 @@ test("It should teardown non attached partial views (in order).", function() {
 
 test("When trying to render a partial-view into a parent-partial-view that has a child-view in the same container, it should teardown it's child-view first.", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var order = [];
 	var setupHomeView = { teardown: stubFn(null, order), container: "adam" }
 	pc.partialViews["loggedIn"].active = true;
@@ -730,7 +604,7 @@ test("When trying to render a partial-view into a parent-partial-view that has a
 
 test("When rendering a partial-view that is on the same level as one that is currently showing, it should be torn down", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	var order = [];
 	pc.partialViews["loggedIn"].active = true;
 	pc.partialViews["setup"].active = true;
@@ -756,7 +630,7 @@ test("When rendering a partial-view that is on the same level as one that is cur
 
 test("etc", function() {
 	var pc = new Tyro.PageController();
-	pc.partialViews = $.extend(true, {}, fixtures.main);
+	pc.partialViews = fixtures.getCopyOfMain();
 	pc.partialViews["loggedIn"].active = true;
 	pc.partialViews["dashboard"].active = true;	
 	var order = [];
@@ -780,7 +654,7 @@ module("render() - moving from 3 levels deep to a non-attached ")
 
 test("When rendering a non-attached partial-view from 3 levels deep, the correct partial-views should be torn down in order", function() {
   var pc = new Tyro.PageController();
-  pc.partialViews = $.extend(true, {}, fixtures.main);
+  pc.partialViews = fixtures.getCopyOfMain();
   pc.partialViews["loggedIn"].active = true;
   pc.partialViews["setup"].active = true;
   pc.partialViews["campaigns"].active = true;
