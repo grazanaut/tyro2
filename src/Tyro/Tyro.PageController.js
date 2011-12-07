@@ -77,10 +77,10 @@ Tyro.PartialViewCollectionItem = function(id, parent, view) {
   this.parentId = null;
   if (parent) {
     this.parentId = parent.id;
-    parent.childPartials.push(this);
+    parent.childCollectionItems.push(this);
   }
   this.childViews = [];
-  this.childPartials = [];
+  this.childCollectionItems = [];
   this.view = view;
 };
 
@@ -122,10 +122,10 @@ Tyro.PartialViewCollectionItem.prototype.getActiveDescendantPartials = function(
   var arr = [],
       childArr = [];
 
-  for (var i = 0; i < this.childPartials.length; i++ ) {
-    if (this.childPartials[i].active) {
-      arr.unshift(this.childPartials[i]);
-      childArr = this.childPartials[i].getActiveDescendantPartials();
+  for (var i = 0; i < this.childCollectionItems.length; i++ ) {
+    if (this.childCollectionItems[i].active) {
+      arr.unshift(this.childCollectionItems[i]);
+      childArr = this.childCollectionItems[i].getActiveDescendantPartials();
       if (childArr.length > 0) {
         arr = childArr.concat(arr);
       }
