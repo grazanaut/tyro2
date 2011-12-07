@@ -1,10 +1,12 @@
-Tyro
+Tyro2
 ======
 
-In a sentence
--------------
+In a sentence (or two)
+----------------------
 
 Tyro is another (super-lightweight) JavaScript (MVC) framework inspired by Backbone, CorMVC and Sammy.
+
+Tyro2 is a fork of Tyro which modifies some naming conventions and code within the Page Controller. Forked and renamed because this modifies the external interface
 
 In slightly more detail
 -----------------------

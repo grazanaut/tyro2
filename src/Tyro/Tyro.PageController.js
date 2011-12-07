@@ -3,11 +3,202 @@
  */
 var Tyro = Tyro || {};
 
+(function() {
+
+
+//utility methods private to this module
+var Utils = {
+  matches: function(item, queryOrFunction) {
+    if ($.isFunction(queryOrFunction)) {
+      return queryOrFunction(item);
+    }
+    var itemprop, prop;
+    for (prop in queryOrFunction) {
+      itemprop = $.isFunction(item[prop]) ? item[prop]() : item[prop];
+      if (itemprop !== queryOrFunction[prop]) {
+        return false;
+      }
+    }
+    return true;
+  },
+  filter: function(collection, queryOrFunction) {
+    var i, item,
+        results = [];
+    for (i in collection) {
+      item = collection[i];
+      if (Utils.matches(item,queryOrFunction)) {
+        results.push(item);
+      }
+    }
+    return results;
+  }
+};
+
+
+/**
+ * A wrapper/encapsulator/adapter for partial views (layouts) which is used as a double-linked-list/tree-node to
+ * represent layouts with one or more child layouts or child views
+ * In Tyro.PageController, an "Item" represents one of the nodes in this tree representation which wraps a partial view.
+ * A PartialViewCollectionItem contains a View object which is the actual PartialView
+ * with render methods, etc.
+ * References to these items are also stored in a flat (non-tree) hashmap as Tyro.PageController.items
+ * NOTE: this is a double-linked-tree structure. As a result, be *very* careful of any deep-copy/extend/compare
+ *       routines as they *will* result in stack overflow
+ * @class
+ * @constructor
+ * @memberOf Tyro
+ * @param {string} id The id of this pv item
+ * @param {Tyro.PartialViewCollectionItem} parent The parent item (or null)
+ * @param {Object} view The view associated with this item
+ */
+Tyro.PartialViewCollectionItem = function(id, parent, view) {
+  if(typeof id !== "string") {
+    throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide an id");
+  }
+  if(parent !== null && !(parent instanceof Tyro.PartialViewCollectionItem)) {
+    throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a parent of null or type PartialViewCollectionItem");
+  }
+  if(!$.type(view) === "object") {
+      throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a view object");
+  }
+  if(typeof view.render !== "function") {
+      throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a view with a render method");
+  }
+  if(typeof view.teardown !== "function") {
+      throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a view with a teardown method");
+  }
+  if(typeof view.container !== "string") {
+      throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a view with a container property");
+  }
+  
+  this.id = id;
+  this.active = false;
+  this.parent = parent;
+  this.parentId = null;
+  if (parent) {
+    this.parentId = parent.id;
+    parent.childPartials.push(this);
+  }
+  this.childViews = [];
+  this.childPartials = [];
+  this.view = view;
+};
+
+/**
+ * Gets the view's container
+ * @public
+ * @function
+ * @memberOf Tyro.PartialViewCollectionItem
+ * @returns {string} The view's container
+ */
+Tyro.PartialViewCollectionItem.prototype.getViewContainer = function() {
+  return this.view.container;
+};
+
+
+/**
+ * Gets the top level (head) of the partial view by traversing up the chain of parents
+ * @public
+ * @function
+ * @memberOf Tyro.PartialViewCollectionItem
+ * @returns {Tyro.PartialViewCollectionItem} The head/top item
+ */
+Tyro.PartialViewCollectionItem.prototype.getHead = function() {
+  var v = this;
+  while (!!v.parent) {
+    v = v.parent;
+  }
+  return v;
+};
+
+/**
+ * Gets an array of child partial-views that are active for a given partial-view id
+ * @public
+ * @function
+ * @memberOf Tyro.PartialViewCollectionItem
+ * @returns {Array} an array of partial-view children and children of children, etc which are active. Ordered by lowest-level children first (these always come before their parent)
+ */
+Tyro.PartialViewCollectionItem.prototype.getActiveDescendantPartials = function() {
+  var arr = [],
+      childArr = [];
+
+  for (var i = 0; i < this.childPartials.length; i++ ) {
+    if (this.childPartials[i].active) {
+      arr.unshift(this.childPartials[i]);
+      childArr = this.childPartials[i].getActiveDescendantPartials();
+      if (childArr.length > 0) {
+        arr = childArr.concat(arr);
+      }
+    }
+  }
+  return arr;
+};
+
+/**
+ * Gets inactive (unrendered) parents and parents of parents (including "this"if inactive)
+ * @public
+ * @function
+ * @memberOf Tyro.PartialViewCollectionItem
+ * @returns {Array} An array of Tyro.PartialViewCollectionItem ordered parents first then children (and "this" last)
+ */
+Tyro.PartialViewCollectionItem.prototype.getInactiveParents = function() {
+  var pv = this,
+      result = [];
+  //check if active - if this or any parents are active we assume that all remaining parents are also active, and we stop
+  while (pv && !pv.active) {
+    result.unshift(pv);
+    pv = pv.parent;
+  }
+  return result;
+};
+
+/**
+ * Tears down the contained view and all childViews
+ * @public
+ * @function
+ * @memberOf Tyro.PartialViewCollectionItem
+ */
+Tyro.PartialViewCollectionItem.prototype.teardownViews = function() {
+		var childViews = this.childViews;
+		for(var i = 0; i < childViews.length; i++) {
+				childViews[i].teardown();
+				childViews.splice(i, 1);
+				i--;
+		}
+		this.view.teardown();
+		this.active = false;
+};
+
+/**
+ * Teardown a child-view with a given container
+ * @public
+ * @function
+ * @example
+ * var dashboard = new Tyro.PartialViewCollectionItem("dashboard", null, new fixtures.MockView("#mainDomNode"));
+ * // will teardown any child-views that dashboard contains that has a container of "#mainDomNode"
+ * dashboard.teardownChildView("#mainDomNode");
+ * @memberOf Tyro.PartialViewCollectionItem
+ * @param {String} container The selector for the dom node
+ */
+Tyro.PartialViewCollectionItem.prototype.teardownChildView = function(container) {
+  for(var i = 0; i < this.childViews.length; i++) {
+    if(this.childViews[i].container === container) {
+      this.childViews[i].teardown();
+      this.childViews.splice(i, 1);
+      break;
+    }
+  }
+};
+
+
 /**
  * A special controller to handle the rendering and tearing down of partial-views
  * @class
  * @constructor
  * @memberOf Tyro
+ * @property {Tyro.PartialViewCollectionItem[]} items The hashmap (not actually an array, but specified for jsDoc purposes)
+ *           of PartialViewCollectionItems the PageController manages. Each item contains a partialView and one or more
+ *           child items or child views
  * @example
  * var pc = new Tyro.PageController();
  * function controllerAction() {
@@ -19,154 +210,62 @@ var Tyro = Tyro || {};
  * }
  */
 Tyro.PageController = function() {
-	this.partialViews = {};	
-}
+	this.items = {};
+};
 
 /**
- * Gets an array of non attached active partial-views
+ * Gets an array of top-level partial-views (i.e. those without parents)
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- * @returns {Array} A list of non attached active partial-views (in teardown order)
- */ 
-Tyro.PageController.prototype.getPartialViewsNonAttachedActive = function(partialViewId) {
-		var returnVal = [];
-		var topLevelPartialViewActiveNonAttached = null;
-		for(var pv in this.partialViews) {
-				if(this.partialViews[pv].partialViewId === null) {
-						if(this.partialViews[pv].active) {
-								if(this.partialViews[pv] !== this.getPartialViewTopLevel(partialViewId)) {
-										topLevelPartialViewActiveNonAttached = pv;
-										returnVal.push(this.partialViews[pv]);
-										break;
-								}
-						}
-				}
-		}
-		if(topLevelPartialViewActiveNonAttached) {				
-				returnVal = returnVal.concat(this.getPartialViewsChildrenActive(topLevelPartialViewActiveNonAttached).reverse());
-		}
-		return returnVal.reverse();
-}
-
-/**
- * Gets the top level partial-view for a particular partial-view specified
- * e.g. If we have Top > Second > Third and we ask for the top level partial-view
- * for "Second" or "Third" it should return the "top" partial-view
- * @example
- * var pc = new Tyro.PageController();
- * pc.getPartialViewTopLevel("dashboard");
- * @public
- * @function
- * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- * @returns {Object} The top level partial-view
+ * @returns {Array} A list of active top-level views
  */
-Tyro.PageController.prototype.getPartialViewTopLevel = function(partialViewId) {
-		var topLevel = null;
-		
-		if(this.partialViews[partialViewId].partialViewId !== null) {
-				topLevel = this.getPartialViewTopLevel(this.partialViews[partialViewId].partialViewId);
-		}
-		else {
-				topLevel = this.partialViews[partialViewId];
-		}
-		return topLevel;
-}
+Tyro.PageController.prototype.getActiveTopLevelItems = function() {
+  return Utils.filter(this.items, { parent: null, active: true });
+};
 
 /**
- * Gets an array of child partial-views that are active for a given partial-view id
+ * Gets an array of all active partial-views that are unrelated to the provided partial view
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- * @returns {Array} An array of partial-views
+ * @param {Tyro.PartialViewCollectionItem} item The id of the partial-view i.e. "dashboard"
+ * @returns {Array} A list of unrelated active partial-views (in teardown order)
  */
-Tyro.PageController.prototype.getPartialViewsChildrenActive = function(partialViewId) {
-	var viewId = null;
-	var arr = [];
-	for(var view in this.partialViews) {
-		if(this.partialViews[view].active) {
-			if(partialViewId == this.partialViews[view].partialViewId) {
-				viewId = view;
-				arr.push(this.partialViews[view]);
-				break;
-			}
-		}
-	}
-	if(viewId) {
-		arr = arr.concat(this.getPartialViewsChildrenActive(viewId));
-	}
-	return arr.reverse();
-}
+Tyro.PageController.prototype.getActiveItemsUnrelatedTo = function(item) {
+  if (!item) {
+    return []; //no view defined, return empty array
+  }
+
+  var unrelatedTopLevelActiveViews, i, view,
+      returnVal = [],
+      topLevelOfGivenView = !!item ? item.getHead() : null,
+      activeTopLevelViews = this.getActiveTopLevelItems();
+
+  unrelatedTopLevelActiveViews = Utils.filter(activeTopLevelViews, function(item) {
+    return item !== topLevelOfGivenView;
+  });
+
+  for (i = 0; i < unrelatedTopLevelActiveViews.length; i++) { //in theory we should only have one active top-level view, but just in case...
+    view = unrelatedTopLevelActiveViews[i];
+    //we do this in reverse, but rather than using reverse twice, just concat children first and then push top level
+    returnVal = view.getActiveDescendantPartials().concat(view, returnVal);
+  }
+  return returnVal;
+};
 
 /**
- * Gets an array of parent partial-views that are in-active (to be rendered) for a given partial-view id
+ * Tears down multiple partial-views given an array of PartialViewCollectionItems
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- * @returns {Array} An array of partial-views
+ * @param {Tyro.PartialViewCollectionItems[]} items An array of partial views to teardown
  */
-Tyro.PageController.prototype.getPartialViewsInActiveParents = function(partialViewId) {
-		var returnVal = [];
-		while(this.partialViews[partialViewId] && this.partialViews[partialViewId].active == false ) {
-				returnVal.push(this.partialViews[partialViewId]);
-				partialViewId = this.partialViews[partialViewId].partialViewId;
+Tyro.PageController.prototype.teardownItems = function(items) {
+		for(var i = 0; i < items.length; i++) {
+				items[i].teardownViews();
 		}
-		return returnVal.reverse();
-}
-
-/**
- * Tears down a partial-view for a given partial-view id
- * @public
- * @function
- * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- */
-Tyro.PageController.prototype.teardownPartialView = function(partialViewId) {
-		var pv = this.partialViews[partialViewId];
-		if(!pv) return;
-		var childViews = pv.childViews;
-		for(var i = 0; i < childViews.length; i++) {
-				childViews[i].teardown();
-				childViews.splice(i, 1);
-				i--;
-		}
-		pv.view.teardown();
-		pv.active = false;		
-}
-
-/**
- * Tears down multiple partial-views given an array of partial-views
- * @public
- * @function
- * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- */
-Tyro.PageController.prototype.teardownPartialViews = function(arr) {
-		for(var i = 0; i < arr.length; i++) {
-				this.teardownPartialView(arr[i].id);
-		}
-}
-
-/**
- * Gets a partial-view's dom container
- * @public
- * @function
- * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- * @returns {String} A string representing the dom node i.e. a selector
- */
-Tyro.PageController.prototype.getPartialViewDomContainer = function(partialViewId) {
-		var returnVal = null;
-		var pv = this.partialViews[partialViewId];
-		if(pv && pv.view && pv.view.container) {
-				returnVal = pv.view.container;
-		}
-		return returnVal;
-}
+};
 
 /**
  * Adds a view to become a stored child view for a particular partial-view. So that
@@ -174,11 +273,11 @@ Tyro.PageController.prototype.getPartialViewDomContainer = function(partialViewI
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
+ * @param {String} parentId The id of the partial-view i.e. "dashboard"
  * @param {Object} view The view object
  * @returns {Array} An array of partial-views
  */
-Tyro.PageController.prototype.addChildView = function(partialViewId, view) {
+Tyro.PageController.prototype.addChildView = function(parentId, view) {
     if(!view) {
       throw new TypeError("Tyro: PageController: addChildView: Must provide a view to add.");
     }
@@ -186,108 +285,46 @@ Tyro.PageController.prototype.addChildView = function(partialViewId, view) {
       throw new TypeError("Tyro: PageController: addChildView: Must provide a view container.");
     }
     if(typeof view.teardown !== "function") {
-      throw new TypeError("Tyro: PageController: addChildView: Must provide a view container.");
+      throw new TypeError("Tyro: PageController: addChildView: Must provide a view teardown function.");
     }
-		var pv = this.partialViews[partialViewId];
-		var existingView = null;
-		if(pv) {
-				this.teardownChildView(partialViewId, view.container);
-				pv.childViews.push(view);
+		var parent = this.items[parentId];
+		if(parent) {
+				parent.teardownChildView(view.container);
+				parent.childViews.push(view);
 		}
-}
+};
+
 
 /**
- * Teardown a child-view for a particular partial-view
- * @public
- * @function
- * @example
- * var pc = new Tyro.PageController()
- * // will teardown any child-views that dashboard contains that has a container of "#mainDomNode"
- * pc.teardownChildView("dashboard", "#mainDomNode"); 
- * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- * @param {String} container The selector for the dom node
- * @returns {Array} An array of partial-views
- */
-Tyro.PageController.prototype.teardownChildView = function(partialViewId, container) {
-		var pv = this.partialViews[partialViewId];
-		if(pv) {
-				for(var i = 0; i < pv.childViews.length; i++) {
-						if(pv.childViews[i].container === container) {
-								pv.childViews[i].teardown();
-								pv.childViews.splice(i, 1);
-								break;
-						}
-				}
-		}
-}
-
-/**
- * Adds a new partial-view for the page-controller to manage. 
+ * Adds a new partial-view-collection-item for the page-controller to manage.
  * Must conform to particular interface to be accepted.
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {Object} pv The partial-view object
- * @returns {Array} An array of partial-views
+ * @param {Tyro.PartialViewCollectionItem} item
  */
-Tyro.PageController.prototype.addPartialView = function(pv) {
-		if(!$.type(pv) === "object") {
-				throw new TypeError("Tyro: PageController: addPartialView: provide a partial view");
-		}
-		if(typeof pv.id !== "string") {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide an id");
-		}
-		if(typeof pv.active !== "boolean") {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide an active property");
-		}
-		if(typeof pv.partialViewId !== "string" && pv.partialViewId !== null) {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide an partialViewId property");
-		}
-		if(!$.isArray(pv.childViews)) {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide a childViews array property");
-		}
-		if(!$.type(pv) === "object") {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide a view object property");
-		}
-		if(typeof pv.view.render !== "function") {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide a view with a render method");
-		}
-		if(typeof pv.view.teardown !== "function") {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide a view with a teardown method");
-		}
-		if(typeof pv.view.container !== "string") {
-				throw new TypeError("Tyro: PageController: addPartialView: Must provide a view with a container property");
-		}
-		
-		this.partialViews[pv.id] = pv;
-}
+Tyro.PageController.prototype.addItem = function(item) {
 
-/**
- * Checks to see if a particular partial-view is active or not
- * @public
- * @function
- * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
- * @returns {Boolean} Returns true when active, otherwise false
- */
-Tyro.PageController.prototype.isPartialViewActive = function(partialViewId) {
-		return this.partialViews[partialViewId].active;
-}
+  if(!(item instanceof Tyro.PartialViewCollectionItem)) {
+      throw new TypeError("Tyro: PageController: addPartialView: provide a partial view collection item");
+  }
+  
+  this.items[item.id] = item;
+};
 
 /**
  * Renders a collection of partial-views
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
+ * @param {Tyro.PartialViewCollectionItem[]} items The partial views array to render
  */
-Tyro.PageController.prototype.renderPartialViews = function(partialViews) {
-		for(var i = 0; i < partialViews.length; i++) {
-				partialViews[i].view.render();
-				partialViews[i].active = true;
+Tyro.PageController.prototype.renderItems = function(items) {
+		for(var i = 0; i < items.length; i++) {
+				items[i].view.render();
+				items[i].active = true;
 		}
-}
+};
 
 /**
  * The function which is responsible for the tearing down and rendering of partial-views.
@@ -296,38 +333,40 @@ Tyro.PageController.prototype.renderPartialViews = function(partialViews) {
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {String} partialViewId The id of the partial-view i.e. "dashboard"
+ * @param {String} itemId The id of the PartialViewCollectionItem object i.e. "dashboard"
  */
-Tyro.PageController.prototype.render = function(partialViewId) {
-		if(!partialViewId) {
-				throw new TypeError("Tyro: PageController: render: Must provide a partialViewId");
-		}
-		
-		if(this.isPartialViewActive(partialViewId)) {
-				this.teardownPartialViews(this.getPartialViewsChildrenActive(partialViewId));
-		}
-		else {
-				this.teardownPartialViews(this.getPartialViewsNonAttachedActive(partialViewId));
-				
-				this.teardownPartialViews(this.getPartialViewsChildrenActive(partialViewId));
-				
-				var inactiveParents = this.getPartialViewsInActiveParents(partialViewId);
-				if(inactiveParents.length) {
-						var childrenToTeardown = this.getPartialViewsChildrenActive(inactiveParents[0].partialViewId);
-						this.teardownPartialViews(childrenToTeardown);
-				}
-				
-				var parent = this.partialViews[this.partialViews[partialViewId].partialViewId];
-				
-				if(parent) {
-						this.teardownChildView(parent.id, this.partialViews[partialViewId].view.container);
-				}
+Tyro.PageController.prototype.render = function(itemId) {
+  if(!itemId) {
+    throw new TypeError("Tyro: PageController: render: Must provide a partialViewId");
+  }
 
-				this.teardownPartialView(this.getPartialViewIdActiveWithDomContainer(this.partialViews[partialViewId].view.container))
+  var item = this.items[itemId],
+      parent = item.parent;
 
-				this.renderPartialViews(this.getPartialViewsInActiveParents(partialViewId));		
-		}
-}
+  //always attempt to teardown any descendants of the view
+  this.teardownItems(item.getActiveDescendantPartials());
+
+  //if view is already active, no need to re-render (we've simply torn down descendants)
+  if(!item.active) {
+    this.teardownItems(this.getActiveItemsUnrelatedTo(item));
+
+    var inactiveParents = item.getInactiveParents(); //ordered parents->children (including "item" as last element)
+
+    if(inactiveParents.length && inactiveParents[0].parent) {
+		  var childrenToTeardown = inactiveParents[0].parent.getActiveDescendantPartials();
+      this.teardownItems(childrenToTeardown);
+    }
+
+    if(parent) {
+      parent.teardownChildView(item.view.container);
+    }
+
+    this.teardownItems(this.getPartialViewActiveWithDomContainer(item.view.container));
+
+    //we getInactiveParents() again, is they have been torn down, so may be different to the inactiveParents local var from above
+    this.renderItems(item.getInactiveParents()); //ordered parents->children (including "item" as last element)
+  }
+};
 
 /**
  * Gets the partial-view id with a particular dom container.
@@ -337,15 +376,9 @@ Tyro.PageController.prototype.render = function(partialViewId) {
  * @param {String} container The DOM selector i.e. "#mainDomNode"
  * @returns {String/Null} Returns the partial-view id if found, otherwise null
  */
-Tyro.PageController.prototype.getPartialViewIdActiveWithDomContainer = function(container) {
-		var returnVal = null;
-		for(var pv in this.partialViews) {
-				if(this.partialViews[pv].active) {
-						if(this.partialViews[pv].view.container === container) {
-								returnVal = this.partialViews[pv].id;
-								break;
-						}
-				}
-		}
-		return returnVal;
-}
+Tyro.PageController.prototype.getPartialViewActiveWithDomContainer = function(container) {
+  return Utils.filter(this.items, { active: true, getViewContainer: container });
+};
+
+
+}());//end of module closure/wrapper method
