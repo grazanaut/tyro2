@@ -58,7 +58,7 @@ Tyro.PartialViewCollectionItem = function(id, parent, view) {
   if(parent !== null && !(parent instanceof Tyro.PartialViewCollectionItem)) {
     throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a parent of null or type PartialViewCollectionItem");
   }
-  if(!$.type(view) === "object") {
+  if($.type(view) !== "object") {
       throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a view object");
   }
   if(typeof view.render !== "function") {
@@ -70,7 +70,7 @@ Tyro.PartialViewCollectionItem = function(id, parent, view) {
   if(typeof view.container !== "string") {
       throw new TypeError("Tyro: PartialViewCollectionItem: constructor: Must provide a view with a container property");
   }
-  
+
   this.id = id;
   this.active = false;
   this.parent = parent;
@@ -202,11 +202,11 @@ Tyro.PartialViewCollectionItem.prototype.teardownChildView = function(container)
  * @example
  * var pc = new Tyro.PageController();
  * function controllerAction() {
- * 		pc.render("dashboard");
- * 		pc.addChildView("dashboard", dashboardHomeView);
- * 		dashboardHomeView.showLoader();
- * 		dashboardHomeView.hideLoader();
- * 		dashboardHomeView.render();
+ *    pc.render("dashboard");
+ *    pc.addChildView("dashboard", dashboardHomeView);
+ *    dashboardHomeView.showLoader();
+ *    dashboardHomeView.hideLoader();
+ *    dashboardHomeView.render();
  * }
  */
 Tyro.PageController = function() {
@@ -308,7 +308,7 @@ Tyro.PageController.prototype.addItem = function(item) {
   if(!(item instanceof Tyro.PartialViewCollectionItem)) {
       throw new TypeError("Tyro: PageController: addPartialView: provide a partial view collection item");
   }
-  
+
   this.items[item.id] = item;
 };
 
@@ -353,7 +353,7 @@ Tyro.PageController.prototype.render = function(itemId) {
     var inactiveParents = item.getInactiveParents(); //ordered parents->children (including "item" as last element)
 
     if(inactiveParents.length && inactiveParents[0].parent) {
-		  var childrenToTeardown = inactiveParents[0].parent.getActiveDescendantPartials();
+      var childrenToTeardown = inactiveParents[0].parent.getActiveDescendantPartials();
       this.teardownItems(childrenToTeardown);
     }
 
