@@ -63,7 +63,7 @@ var Tyro = Tyro || {};
         //call childFn now that inherited() exists
         childFn.apply(this, arguments);
         //reset this.inherited
-        this.inherited = _inheritred;
+        this.inherited = _inherited;
       };
     }
 
