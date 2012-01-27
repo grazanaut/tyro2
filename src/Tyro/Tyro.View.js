@@ -5,187 +5,308 @@ var Tyro = Tyro || {};
 
 (function() {
 
+  function isFunc(fn) {
+    return typeof fn === "function";
+  }
 
-//utility methods private to this module
-var Utils = {
-  matches: function(item, queryOrFunction) {
-    if ($.isFunction(queryOrFunction)) {
-      return queryOrFunction(item);
-    }
-    var itemprop, prop;
-    for (prop in queryOrFunction) {
-      itemprop = $.isFunction(item[prop]) ? item[prop]() : item[prop];
-      if (itemprop !== queryOrFunction[prop]) {
-        return false;
+  /*
+   * Simple inheritance behaviour
+   * extends() should be added to child classes and then called with parent as arg
+   */
+  //usage var NewClass = klass(Base, def);
+
+  function klass(Base, classDef){
+
+    var p, prop, baseProp,
+        _extendingWith = Base._extendingWith,
+        _constructor = classDef.constructor,
+        basePt = Base.prototype;
+
+    //we have constructor in local var - remove to save us from iterating,
+    //as we'll set constructor to *actual* constructor later
+    delete classDef.constructor;
+
+    //define the new class
+    var Class = function(){
+      //call the constructor IF defined AND we're actually constructing and
+      //not merely extending with a sub class
+      var thisClass = this.constructor;
+      if (!thisClass._extendingWith && isFunc(_constructor)) {
+        _constructor.apply(this, arguments);
       }
     }
-    return true;
-  },
-  filter: function(collection, queryOrFunction) {
-    var i, item,
-        results = [];
-    for (i in collection) {
-      item = collection[i];
-      if (Utils.matches(item,queryOrFunction)) {
-        results.push(item);
+    //do the standard prototypal inheritance
+    //but we need to tell the base class not to call the _constructor method
+    //as it's being extended, not being instantiated
+    Base._extendingWith = Class;
+    Class.prototype = new Base();
+    if (typeof _extendingWith === "undefined") {
+      delete Base._extendingWith;
+    }
+    else {
+      Base._extendingWith = _extendingWith;
+    }
+
+    //define our closure-creation method for creating inherited() functionality
+    function overrideMethod(baseFn, childFn){
+      return function() {
+        //store inherited in case it already exists
+        var _inherited = this.inherited;
+        //make inherited() the base method
+        this.inherited = baseFn;
+        //call childFn now that inherited() exists
+        childFn.apply(this, arguments);
+        //reset this.inherited
+        this.inherited = _inheritred;
+      };
+    }
+
+    //add the classDef properties to the prototype, catering for overridden methods
+    for (p in classDef) {
+      prop = classDef[p];
+      baseProp = basePt[p];
+      if (isFunc(baseProp)) {
+        if (!isFunc(prop)) {
+          throw new Error("Attempt to override function with non-function");
+        }
+        prop = overrideMethod(baseProp, prop);
+      }
+      Class.prototype[p] = prop;
+    }
+
+    //do the standard constructor reset, so instanceof, etc works as expected
+    Class.prototype.constructor = Class;
+
+    //return the new class
+    return Class;
+  }
+
+  /**
+   * A tree node from which base view will inherit
+   * References to these items are also stored in a flat (non-tree) hashmap as Tyro.PageController.items
+   * NOTE: this is a double-linked-tree structure. As a result, be *very* careful of any deep-copy/extend/compare
+   *       routines as they *will* result in stack overflow
+   * @class
+   * @abstract
+   * @memberOf Tyro
+   */
+  var TreeNode = Tyro.TreeNode = klass(Object, {
+    /**
+     * @constructor
+     * @param {TreeNode} parent The parent item (or null)
+     */
+    constructor: function(parent) {
+      //defaults
+      this.children = [];
+      //provided properties
+      this.setParent(parent);
+    },
+    /*
+     * Public Properties
+     */
+    parent: null,
+    setParent: function(p) {
+      if(p !== null && !(p instanceof TreeNode)) {
+        throw new TypeError("Tyro: TreeNode: Parent must be null or type TreeNode");
+      }
+      if (this.parent === p) return; //prevent needless recursion
+      if (!!p) {
+        p.addChild(this);
+      }
+      this.parent = p; //must be after addChild call, to prevent recursion
+    },
+    /**
+     * Gets the top level (head) of the partial view by traversing up the chain of parents
+     * @public
+     * @function
+     * @returns {TreeNode} The head/top item
+     */
+    getHead: function() {
+      if (!this.parent) return this;
+      return this.parent.getHead();
+    },
+    /**
+     * Iterates/recurses all children and descendants with given callback(s), which can optionally stop iteration
+     * @public
+     * @function
+     * @param {Function(TreeNode)} [callbacks.before]
+     *    Optional callback method for each node found, executed
+     *    before iterating children.
+     * @param {Function(TreeNode)} [callbacks.after]
+     *    Optional callback method for each node found, executed
+     *    after iterating children.
+     *
+     *  If either callback returns exactly false (false, not undefined or falsey),
+     *  it will stop iteration on that branch
+     */
+    traverseDescendants: function(callbacks) {
+      var cbs = callbacks || {},
+          child;
+
+      for (var i = 0; i < this.children.length; i++ ) {
+        child = this.children[i];
+        if (isFunc(cbs.before) && cbs.before(child) === false) return false;
+        if (this.children[i].traverseDescendants(cbs)) return false;
+        if (isFunc(cbs.after) && cbs.after(child) === false) return false;
+      }
+    },
+    /**
+     * Traverses all THIS and all parents, stopping if callback returns false
+     * @public
+     * @function
+     * @returns {Function(TreeNode)} [callback] The callback method for each node.
+     *                                          If it returns false (false, not undefined),
+     *                                          it will stop iteration on that branch
+     */
+    traverseUpwards: function(callback) {
+      if (!isFunc(callback) || callback(this) !== false) { //must explicitly return false and not just undefined, to stop iteration
+        if (!!this.parent) {
+          this.parent.traverseUpwards(callback);
+        }
+      }
+    },
+    /**
+     * Adds a node as a child
+     * @public
+     * @function
+     * @param {TreeNode} child The child node to add
+     */
+    addChild: function(child) {
+      if(!(child instanceof TreeNode)) {
+        throw new TypeError("Tyro: TreeNode: addChild: Must provide an instance of TreeNode");
+      }
+      if (child.parent === this) return; //nothing to do, prevent recursion
+      if (!!child.parent) {
+        //remove from previous parent
+        child.parent.removeChild(child);
+      }
+      this.children.push(child);
+      child.setParent(this); //may recurse back into this method, but will be blocked by above check
+    },
+    /**
+     * Adds a node as a child
+     * @public
+     * @function
+     * @param {TreeNode} child The child node to add
+     */
+    removeChild: function(child) {
+      for (var i = 0; i < this.children.length; i++) {
+        if (this.children[i] === child) {
+          return this.removeChildByIndex(i);
+        }
+      }
+    },
+    removeChildByIndex: function(index) {
+      var child = this.children[index];
+      this.children.splice(index,1);
+      child.setParent(null);
+      return child;
+    }
+  });
+
+  /**
+   * represent layouts with one or more child layouts or child views
+   * In Tyro.PageController, an "Item" represents one of the nodes in this tree representation which wraps a partial view.
+   * A PartialViewCollectionItem contains a View object which is the actual PartialView
+   * with render methods, etc.
+   * References to these items are also stored in a flat (non-tree) hashmap as Tyro.PageController.items
+   * NOTE: this is a double-linked-tree structure. As a result, be *very* careful of any deep-copy/extend/compare
+   *       routines as they *will* result in stack overflow
+   * @class
+   * @memberOf Tyro
+   */
+  var AbstractView = Tyro.AbstractView = klass(TreeNode, {
+    /** @property container Subclasses should inject/set */
+    container: null,
+
+    /**
+     * @constructor
+     * @override
+     * @param {string} id The id of this view
+     * @param {AbstractView} parent The parent view (or null)
+     */
+    constructor: function(id, parent) {
+      if(typeof id !== "string") {
+        throw new TypeError("Tyro: AbstractView: constructor: Must provide an id");
+      }
+      this.id = id;
+
+      this.inherited(parent);
+    },
+    /**
+     * @abstract
+     * Child Classes should override this method to implement teardown behaviours
+     */
+    isActive: function(){}, //TODO: active probably means non-persistent (i.e. not menu, etc) - change name of this
+
+    
+    removeChildInContainer: function(container) {
+      for (var i = 0; i < this.children.length; i++) {
+//////IS THIS NEEDED?!?
+      }
+    },
+    /**
+     * @abstract
+     * Child Classes should override this method to implement teardown behaviours
+     */
+    doTeardown: function(){},
+
+    /**
+     * @public
+     * @function
+     * Calls teardown on all children, and then self
+     */
+    teardown: function() {
+      //children first
+      for (var i = 0; i < this.children.length; i++) {
+        this.children[i].teardown();
+      }
+      //then self
+      this.doTeardown();
+    },
+    /**
+     * @public
+     * @function
+     * Calls teardown on all children, and then self
+     */
+    teardownActiveDescendants: function() {
+      this.traverseDescendants({
+        after: function(item){
+          if (item.isActive()) {
+            item.teardown();
+            if (item.parent) {
+              item.parent.removeChild(item);
+            }
+          }
+        }
+      });
+    }
+  });
+
+
+
+  /**
+   * Gets an array of child partial-views that are active for a given partial-view id
+   * @public
+   * @function
+   * @memberOf AbstractView
+   * @returns {Array} an array of partial-view children and children of children, etc which are active. Ordered by lowest-level children first (these always come before their parent)
+   */
+  AbstractView.prototype.getActiveDescendantPartials = function() {
+    var arr = [],
+        childArr = [];
+
+    for (var i = 0; i < this.childCollectionItems.length; i++ ) {
+      if (this.childCollectionItems[i].active) {
+        arr.unshift(this.childCollectionItems[i]);
+        childArr = this.childCollectionItems[i].getActiveDescendantPartials();
+        if (childArr.length > 0) {
+          arr = childArr.concat(arr);
+        }
       }
     }
-    return results;
-  }
-};
-
-
-/**
- * A tree node from which base view will inherit
- * References to these items are also stored in a flat (non-tree) hashmap as Tyro.PageController.items
- * NOTE: this is a double-linked-tree structure. As a result, be *very* careful of any deep-copy/extend/compare
- *       routines as they *will* result in stack overflow
- * @class
- * @abstract 
- * @constructor
- * @memberOf Tyro
- * @param {TreeNode} parent The parent item (or null)
- */
-var TreeNode = Tyro.TreeNode = function(parent) {
-
-  // other properties
-  this.parent = null; //set in init()
-  this.children = [];
-
-  //only init if we're given a parent or NULL, otherwise assume this constructor is being used to create a child class
-  if (arguments.length > 0) { this.init(parent); } 
-};
-
-TreeNode.prototype.init = function(parent) {
-  if(parent !== null && !(parent instanceof TreeNode)) {
-    throw new TypeError("Tyro: TreeNode: constructor: Must provide a parent of null or type TreeNode");
-  }
-  this.parent = parent;
-  if (!!parent) {
-    parent.children.push(this);
-  }
-};
-
-/**
- * Gets the top level (head) of the partial view by traversing up the chain of parents
- * @public
- * @function
- * @memberOf TreeNode
- * @returns {TreeNode} The head/top item
- */
-TreeNode.prototype.getHead = function() {
-  var v = this;
-  while (!!v.parent) {
-    v = v.parent;
-  }
-  return v;
-};
-
-/**
- * Iterates/recurses all children with a given callback, and optional filter to stop iteration
- * @public
- * @function
- * @memberOf TreeNode
- * @param {Function(TreeNode)} callback The callback method for each node found.
- *                                      If it returns false (false, not undefined), 
- *                                      it will stop iteration on that branch
- */
-TreeNode.prototype.iterateChildren = function(callback) {
-  for (var i = 0; i < this.children.length; i++ ) {
-    if (callback(this.children[i]) === false) { //callback must explicitly return false, not just undefined, to stop iteration
-      continue; //=============> callback flagged not to go any further on this branch
-    }
-    this.children[i].iterateChildren(callback);
-  }
-};
-
-/**
- * Iterates all THIS and all parents, stopping if callback returns false
- * @public
- * @function
- * @memberOf TreeNode
- * @returns {Function(TreeNode)} callback The callback method for each node.
- *                                        If it returns false (false, not undefined), 
- *                                        it will stop iteration on that branch
- */
-TreeNode.prototype.iterateUpwards = function(callback) {
-  if (callback(this) !== false) { //must explicitly return false and not just undefined, to stop iteration
-    if (!!this.parent) {
-      this.parent.iterateUpwards(callback);
-    }
-  }
-};
-
-/**
- * represent layouts with one or more child layouts or child views
- * In Tyro.PageController, an "Item" represents one of the nodes in this tree representation which wraps a partial view.
- * A PartialViewCollectionItem contains a View object which is the actual PartialView
- * with render methods, etc.
- * References to these items are also stored in a flat (non-tree) hashmap as Tyro.PageController.items
- * NOTE: this is a double-linked-tree structure. As a result, be *very* careful of any deep-copy/extend/compare
- *       routines as they *will* result in stack overflow
- * @class
- * @constructor
- * @memberOf Tyro
- * @param {string} id The id of this pv item
- * @param {Tyro.PartialViewCollectionItem} parent The parent item (or null)
- */
-var AbstractView = Tyro.AbstractView = function(id, parent) {
-  this.id = null; //set in init
-  this.parentId = null; //set in init
- 
-  //properties that subclasses should inject/set
-  this.container = null;
-
-  //only init if we're given a parent or NULL, otherwise assume this constructor is being used to create a child class
-  if (arguments.length > 0) { this.init(id, parent); }
-};
-AbstractView.prototype = new TreeNode();
-AbstractView.prototype.constructor = AbstractView;
-
-AbstractView.prototype.init = function(id, parent) {
-  TreeNode.prototyp.init.call(this, parent);
-  if(typeof id !== "string") {
-    throw new TypeError("Tyro: AbstractView: constructor: Must provide an id");
-  }
-  this.id = id;
-  if (!!parent) {
-    this.parentId = parent.id;
-  }
-};
-
-/**
- * Methods which must be overridden in child classes
- */ 
-AbstractView.prototype.doTeardown = function() {};
-
-AbstractView.prototype.teardown = function() {
-  this.iterateChildren(function(child) { child.teardown(); });
-  this.doTeardown();
-};
-
-/**
- * Gets an array of child partial-views that are active for a given partial-view id
- * @public
- * @function
- * @memberOf AbstractView
- * @returns {Array} an array of partial-view children and children of children, etc which are active. Ordered by lowest-level children first (these always come before their parent)
- */
-AbstractView.prototype.getActiveDescendantPartials = function() {
-  var arr = [],
-      childArr = [];
-
-  for (var i = 0; i < this.childCollectionItems.length; i++ ) {
-    if (this.childCollectionItems[i].active) {
-      arr.unshift(this.childCollectionItems[i]);
-      childArr = this.childCollectionItems[i].getActiveDescendantPartials();
-      if (childArr.length > 0) {
-        arr = childArr.concat(arr);
-      }
-    }
-  }
-  return arr;
-};
+    return arr;
+  };
 
 /**
  * Gets inactive (unrendered) parents and parents of parents (including "this"if inactive)
