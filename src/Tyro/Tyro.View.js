@@ -272,8 +272,13 @@ var Tyro = Tyro || {};
      */
     teardown: function() {
       //children first
-      for (var i = 0; i < this.children.length; i++) {
+      var i = this.children.length;
+      while (i--) {
         this.children[i].teardown();
+        //if the child is not a layout we also remove it
+        if (!this.children[i].isLayout()) {
+          this.removeChildByIndex(i);
+        }
       }
       this.active = false; //todo: should this be before or after doTeardown?
       //then self
@@ -309,15 +314,74 @@ var Tyro = Tyro || {};
         after: function(item){
           if (item.isActive() && item.isLayout()) {
             item.teardown();
-            if (item.parent) {
-              item.parent.removeChild(item);
-            }
+            //if (item.parent) {
+            //  item.parent.removeChild(item);
+            //}
           }
         }
       });
+      //TODO: refactor - tearing down "this" means it doesnt do what it says on the tin
+      this.teardown();
+      this.active = false;
     }
   });
 
+  var PageLayouts = Tyro.PageLayouts = klass("PageLayouts", Object, {
+    constructor: function(){},
+    register: function(){}
+  });
+
+  var vh = new AbstractView(null);
+  var v1 = new AbstractView(vh);
+  var v1a = new AbstractView(v1);
+  var v2 = new AbstractView(vh);
+
+signedout
+signedin
+signedin
+  dashboard
+signedin
+  workspace
+signedin
+  alternateWorkspace
+signedin
+  nestedWorkspace
+    workspace
+    workspace2
+
+
+  var layoutsConfig = {
+      //View: parent
+      "LoggedOut": null,
+      "LoggedIn": null,
+      "Dashboard": { view: "Dashboard", parent: "LoggedIn" },
+      "Community": { view: "StandardWorkspace", parent: "LoggedIn" },
+      "Setup": { view: " 
+        parent: null
+      },
+      "LoggedIn": {
+        parent: null
+      },
+      "Community": {
+        parent: "LoggedIn"
+      },
+      "Dashboard": {
+        parent
+      
+      parent: loggedOut = app.registerPartialView("loggedOut", null, "LoggedOut", "LoggedOut.Rendered"),
+            loggedIn = app.registerPartialView("loggedIn", null, "LoggedIn", "LoggedIn.Rendered"),
+                  community = app.registerPartialView("community", loggedIn, "StandardWorkspace", "Community.Rendered");
+
+                      app.registerPartialView("dashboard", loggedIn, "Dashboard", null);
+                          app.registerPartialView("setup", loggedIn, "StandardWorkspace", "Setup.Rendered");
+                              app.registerPartialView("assets", loggedIn, "StandardWorkspace", "Assets.Rendered");
+                                  app.registerPartialView("analytics", loggedIn, "StandardWorkspace", "Analytics.Rendered");
+
+                                      app.registerPartialView("communitySearch", community, "SearchWorkspace", "SearchWorkspace.Rendered");
+
+    
+      
+  };
 
 
   /**
