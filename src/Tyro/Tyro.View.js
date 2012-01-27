@@ -9,32 +9,38 @@ var Tyro = Tyro || {};
     return typeof fn === "function";
   }
 
-  /*
-   * Simple inheritance behaviour
-   * extends() should be added to child classes and then called with parent as arg
+  /**
+   * Simple inheritance behaviour, giving access to "this.inherited()" in methods
+   * @param {String} className The name of the new class
+   * @param {Function} Base The base class (function because the constructor function should be passed in)
+   * @param {Object} classDef Definition of new class. If provided with a "constructor" property, this will be executed when the class is "newed"
+   * @example usage var NewClass = klass("NewClass", Base, { constructor: function() {} });
    */
-  //usage var NewClass = klass(Base, def);
+  function klass(className, Base, classDef){
 
-  function klass(Base, classDef){
-
-    var p, prop, baseProp,
+    var p, prop, baseProp, Class,
         _extendingWith = Base._extendingWith,
-        _constructor = classDef.constructor,
         basePt = Base.prototype;
 
-    //we have constructor in local var - remove to save us from iterating,
+    if (typeof classDef.constructor !== "undefined") {
+      classDef._constructor = classDef.constructor;
+    }
+    //we have constructor in new ._constructor property,
+    //so we delete .constructor to prevent needless iteration later
     //as we'll set constructor to *actual* constructor later
     delete classDef.constructor;
 
     //define the new class
-    var Class = function(){
+    Class = function(){
+      this.____className = className;
       //call the constructor IF defined AND we're actually constructing and
       //not merely extending with a sub class
       var thisClass = this.constructor;
-      if (!thisClass._extendingWith && isFunc(_constructor)) {
-        _constructor.apply(this, arguments);
+      if (!thisClass._extendingWith && isFunc(this._constructor)) {
+        this._constructor.apply(this, arguments);
       }
-    }
+    };
+    
     //do the standard prototypal inheritance
     //but we need to tell the base class not to call the _constructor method
     //as it's being extended, not being instantiated
@@ -90,7 +96,7 @@ var Tyro = Tyro || {};
    * @abstract
    * @memberOf Tyro
    */
-  var TreeNode = Tyro.TreeNode = klass(Object, {
+  var TreeNode = Tyro.TreeNode = klass("TreeNode", Object, {
     /**
      * @constructor
      * @param {TreeNode} parent The parent item (or null)
@@ -114,6 +120,13 @@ var Tyro = Tyro || {};
         p.addChild(this);
       }
       this.parent = p; //must be after addChild call, to prevent recursion
+    },
+    removeFromParent: function() {
+      if (!!this.parent) {
+        //remove from previous parent
+        this.parent.removeChild(child);
+        this.parent = null;
+      }
     },
     /**
      * Gets the top level (head) of the partial view by traversing up the chain of parents
@@ -175,13 +188,10 @@ var Tyro = Tyro || {};
       if(!(child instanceof TreeNode)) {
         throw new TypeError("Tyro: TreeNode: addChild: Must provide an instance of TreeNode");
       }
-      if (child.parent === this) return; //nothing to do, prevent recursion
-      if (!!child.parent) {
-        //remove from previous parent
-        child.parent.removeChild(child);
-      }
+      if (child.parent === this) return; //nothing to do
+      child.removeFromParent(); //remove from previous parent if exists
       this.children.push(child);
-      child.setParent(this); //may recurse back into this method, but will be blocked by above check
+      child.parent = this; //set child's parent directly, rather than calling setParent() -> we don't want infinite recursion happening now, do we ;-)
     },
     /**
      * Adds a node as a child
@@ -215,29 +225,33 @@ var Tyro = Tyro || {};
    * @class
    * @memberOf Tyro
    */
-  var AbstractView = Tyro.AbstractView = klass(TreeNode, {
+  var AbstractView = Tyro.AbstractView = klass("AbstractView", TreeNode, {
     /** @property container Subclasses should inject/set */
     container: null,
 
     /**
      * @constructor
      * @override
-     * @param {string} id The id of this view
      * @param {AbstractView} parent The parent view (or null)
+     * @param {string} [id] The id of this view, IF it's a layout
      */
-    constructor: function(id, parent) {
-      if(typeof id !== "string") {
-        throw new TypeError("Tyro: AbstractView: constructor: Must provide an id");
-      }
+    constructor: function(parent, id) {
       this.id = id;
+      this.active = false;
 
       this.inherited(parent);
+    },
+    isLayout: function() {
+      return !!this.id; //considered a layout if it has an id
     },
     /**
      * @abstract
      * Child Classes should override this method to implement teardown behaviours
      */
-    isActive: function(){}, //TODO: active probably means non-persistent (i.e. not menu, etc) - change name of this
+    //TODO: active probably means non-persistent (i.e. not menu, etc) - change name of this
+    isActive: function(){
+      return this.active;
+    },
 
     
     removeChildInContainer: function(container) {
@@ -261,6 +275,7 @@ var Tyro = Tyro || {};
       for (var i = 0; i < this.children.length; i++) {
         this.children[i].teardown();
       }
+      this.active = false; //todo: should this be before or after doTeardown?
       //then self
       this.doTeardown();
     },
@@ -273,6 +288,26 @@ var Tyro = Tyro || {};
       this.traverseDescendants({
         after: function(item){
           if (item.isActive()) {
+            item.teardown();
+            if (item.parent) {
+              item.parent.removeChild(item);
+            }
+          }
+        }
+      });
+      //TODO: refactor - tearing down "this" means it doesnt do what it says on the tin
+      this.teardown();
+      this.active = false;
+    },
+    /**
+     * @public
+     * @function
+     * Calls teardown on all children which are layouts, and then self
+     */
+    teardownActiveDescendantLayouts: function() {
+      this.traverseDescendants({
+        after: function(item){
+          if (item.isActive() && item.isLayout()) {
             item.teardown();
             if (item.parent) {
               item.parent.removeChild(item);
@@ -307,7 +342,7 @@ var Tyro = Tyro || {};
     }
     return arr;
   };
-
+Tyro.PartialViewCollectionItem = function(){};
 /**
  * Gets inactive (unrendered) parents and parents of parents (including "this"if inactive)
  * @public
@@ -501,22 +536,24 @@ Tyro.PageController.prototype.renderItems = function(items) {
 };
 
 /**
- * The function which is responsible for the tearing down and rendering of partial-views.
+ * The function which is responsible for the tearing down and rendering of Layouts
  * It works out what is currently rendered, what needs to be rendered and what needs to be
  * torn down and in what order all that happens.
  * @public
  * @function
  * @memberOf Tyro.PageController
- * @param {String} itemId The id of the PartialViewCollectionItem object i.e. "dashboard"
+ * @param {String} layoutId The id of the PartialViewCollectionItem object i.e. "dashboard"
  */
-Tyro.PageController.prototype.render = function(itemId) {
-  if(!itemId) {
-    throw new TypeError("Tyro: PageController: render: Must provide a partialViewId");
+Tyro.PageController.prototype.render = function(layoutId) {
+  if(!layoutId) {
+    throw new TypeError("Tyro: PageController: render: Must provide a layoutId");
   }
 
-  var item = this.items[itemId],
+  var item = this.items[layoutId],
       parent = item.parent;
 
+  item.teardownActiveDescendantLayouts();
+//above replaces below
   //always attempt to teardown any descendants of the view
   this.teardownItems(item.getActiveDescendantPartials());
 
