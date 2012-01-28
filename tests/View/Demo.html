@@ -4,10 +4,71 @@
     <title>Demo: Tyro.View</title>
     
     <script src="../../src/JQuery/JQuery.js"></script>
-    
-    <!-- SUT -->
-    <script src="../../src/Tyro/Tyro.View.Demo.js"></script> 
+    <script src="../../src/Tyro/Tyro.View.Demo.js"></script>
+    <style>
+      html, body {
+       margin: 0;
+       padding: 0;
+       height: 100%;
+      }
+      .pageWrapper {
+        position: relative;
+        height: 100%;
+      }      
+      .templates
+        { display: none; }
+      .testTemplates .templates 
+        { display: block; width: 100%; height: 100%;}
+      header, 
+      footer
+        { width: 100%; height: 10%; background-color: #33AACC;}
+      .body 
+        { height: 80%; }
+      nav 
+        { float: left; height: 100%; width: 10%; background-color: #CCAACC;}
+      #pageContent,
+      #sectionContent,
+      #topLevelContainer .viewContent
+        { float: left; width: 88%; height: 93%; background-color: #00DD00; margin: 5px; }
+      /* the body of section content background, so the main content inside it looks this colour */
+      #sectionContent .body { background-color: #CCCCCC;}
+    </style>
   </head>
-  <body>
+  <body > <!-- class="testTemplates" -->
+  <div class="pageWrapper">
+    <div id="topLevelContainer" class="pageWrapper"></div>
+
+    <!-- templates -->
+    <div class="templates"> 
+
+    <div class="template" id="page">
+      <header>Main Header</header>
+      <div class="body">
+        <nav>Main Menu</nav>
+        <div class=".viewContent" id="pageContent">Content</div>
+      </div>
+      <footer>Main Footer</footer>
+    </div>
+    <div class="template" id="section">
+      <header>Section Header</header>
+      <div class="body">
+        <nav>Section Menu</nav>
+        <div class=".viewContent" id="sectionContent">Content</div>
+      </div>
+      <footer>Section Footer</footer>
+    </div>
+    <div class="template" id="content">
+      <header>Content Header</header>
+      <div class="body">
+        <nav>Content Menu</nav>
+        <div class=".viewContent" id="innercontent">Some actual Data Goes in Here</div>
+      </div>
+      <footer>Content Footer</footer>
+    </div>
+
+    </div>
+    <!-- /templates -->   
+     
+  </div>
   </body>
 </html>

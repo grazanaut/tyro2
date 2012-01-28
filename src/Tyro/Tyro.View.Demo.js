@@ -329,26 +329,72 @@ var Tyro = Tyro || {};
 
   var BaseView = Tyro.BaseView = klass("BaseView", AbstractView, {
     constructor: function(parent) {
-      
+      this.inherited(parent);
+      this._activationCallbacks = [];
+    },
+    _respondToActivationCallbacks: function() {
+      var callback;
+      while(callback = this._activationCallbacks.shift()) {
+        callback();
+      }
     },
     /**
      * activates the view and calls callback when ready to render (eg when parents are rendered)
      */
     activate: function(callback) {
       var that = this;
+
       if (this.isActive()) {
-        callback();
+        this._respondToActivationCallbacks();
+        this.activating = false;
         return; //========> nothing more to do...
       }
-      what to do if already activating?
+
       this.activating = true;
       if (this.parent) {
         this.parent.requestActivation(this, function(){
           that.activating = false;
         });
       }
-      else callback when ready
+      throw new Error("else callback when ready");
+    },
+    render: function(){
+      $(this.container).html($(".templates").find(this.templateId).html());
     }
+  });
+
+  var PageView = klass("PageView", BaseView, {
+    constructor: function(parent) {
+      this.inherited(parent);
+      this.container = "#topLevelContainer";
+      this.templateId = "#page";
+    }
+  });
+
+  var SectionView = klass("SectionView", BaseView, {
+    constructor: function(parent) {
+      this.inherited(parent);
+      this.container = "#pageContent";
+      this.templateId = "#section";
+    }
+  });
+
+  var ContentView = klass("ContentView", BaseView, {
+    constructor: function(parent) {
+      this.inherited(parent);
+      this.container = "#sectionContent";
+      this.templateId = "#content";
+    }
+  });
+
+  $(document).ready(function(){
+    var pageView = new PageView(null);
+    var sectionView = new SectionView(pageView);
+    var contentView = new ContentView(sectionView);
+    //pageView.render();
+    sectionView.activate();
+    sectionView.render();
+    contentView.render();
   });
 
 
