@@ -194,17 +194,30 @@ var Tyro = Tyro || {};
       child.parent = this; //set child's parent directly, rather than calling setParent() -> we don't want infinite recursion happening now, do we ;-)
     },
     /**
-     * Adds a node as a child
+     * Finds the index of passed in child
+     * @public
+     * @function
+     * @param {TreeNode} child The child node to find
+     * @returns {Integer} index, or NaN if not found
+     */
+    indexOfChild: function(child) {
+      for (var i = 0; i < this.children.length; i++) {
+        if (this.children[i] === child) {
+          return i;
+        }
+      }
+      return parseInt("NaN", 10);
+    },
+    /**
+     * Removes a child node
      * @public
      * @function
      * @param {TreeNode} child The child node to add
      */
     removeChild: function(child) {
-      for (var i = 0; i < this.children.length; i++) {
-        if (this.children[i] === child) {
-          return this.removeChildByIndex(i);
-        }
-      }
+      var index = this.indexOfChild(child);
+      //could check !isNaN(index) instead, but in case we change to return -1, the following also works
+      if (index >= 0) return this.removeChildByIndex();
     },
     removeChildByIndex: function(index) {
       var child = this.children[index];
@@ -251,13 +264,6 @@ var Tyro = Tyro || {};
     //TODO: active probably means non-persistent (i.e. not menu, etc) - change name of this
     isActive: function(){
       return this.active;
-    },
-
-    
-    removeChildInContainer: function(container) {
-      for (var i = 0; i < this.children.length; i++) {
-//////IS THIS NEEDED?!?
-      }
     },
     /**
      * @abstract
@@ -323,7 +329,23 @@ var Tyro = Tyro || {};
       //TODO: refactor - tearing down "this" means it doesnt do what it says on the tin
       this.teardown();
       this.active = false;
+    },
+    /** 
+     * Tears down any 
+     * @public
+     * @function
+     * @param {String} container
+     */
+    teardownDescendantsInContainer: function(container) {
+      throw new Error("Safer way to do this? - we need to make sure that only child views can replace other children?");
+      for (var i = 0; i < this.children.length; i++) {
+        if (this.children.container === container) {
+          this.children[i].teardown();
+          return;
+        }
+      }
     }
+
   });
 
 
@@ -339,29 +361,52 @@ var Tyro = Tyro || {};
       }
     },
     /**
+     * 
+     */
+    childActivating: function(child, callback){
+      var index, container;
+      index = this.indexOfchild(child);
+
+      if (index >= 0){ //i.e. if child is in this parent
+        container = child.container;
+      }
+      else {
+        throw new Error("childActivating was now called with a view that is actually a child!");
+      }
+    },
+    /**
      * activates the view and calls callback when ready to render (eg when parents are rendered)
      */
     activate: function(callback) {
-      var that = this;
+      var that = this,
+          callCallbacks = function(){
+            that._respondToActivationCallbacks();
+            that.activating = false;
+          };
 
-      if (this.isActive()) {
-        this._respondToActivationCallbacks();
-        this.activating = false;
+      this._activationCallbacks.push(callback);
+
+      if (this.isActive() || !this.parent) {
+        callCallbacks();
         return; //========> nothing more to do...
       }
 
       this.activating = true;
-      if (this.parent) {
-        this.parent.requestActivation(this, function(){
-          that.activating = false;
-        });
+
+      if (!this.parent.isActive()) {
+        this.parent.activate(callCallbacks);
       }
-      throw new Error("else callback when ready");
+      else {
+        this.parent.childActivating()
+        throw new Error("teardown currently rendered view, and then call callbacks");
+      }
     },
     render: function(){
       $(this.container).html($(".templates").find(this.templateId).html());
     }
   });
+
+  console.err("render method or similar should check that a parent view actually contains the container the child requires, somehow... (so child doesnt replace parent's parent,etc if wrong heirarchy defined)");
 
   var PageView = klass("PageView", BaseView, {
     constructor: function(parent) {
