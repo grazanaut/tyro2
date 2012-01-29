@@ -15,6 +15,8 @@ var Tyro = Tyro || {};
     }    
   }
 
+  function doNothing() {};
+
   /**
    * Simple inheritance behaviour, giving access to "this.inherited()" in methods
    * @param {String} className The name of the new class
@@ -137,6 +139,7 @@ var Tyro = Tyro || {};
         p.addChild(this);
       }
       this.parent = p; //must be after addChild call, to prevent recursion
+      console.warn("Need to ensure that switching from one parent to another calls teardown!! - possibly child class override to do this?");
     },
     removeFromParent: function() {
       if (!!this.parent) {
@@ -240,6 +243,7 @@ var Tyro = Tyro || {};
       var child = this.children[index];
       this.children.splice(index,1);
       child.setParent(null);
+      console.warn("need to ensure that this calls teardown if need be - possibly child class override to do this?");
       return child;
     }
   });
@@ -383,6 +387,8 @@ var Tyro = Tyro || {};
       var i, index, item,
           that = this;
 
+      callback = callback || doNothing;
+
       if (!this.isActive()){
         console.log("proper async stuff and getViewData or similar needs to be done for render (or to check that it's a partial view)")
         this.activate(function(){
@@ -407,6 +413,17 @@ var Tyro = Tyro || {};
       callback();
     },
     /**
+     * activates and renders parents if need be (also tears down "this" view)
+     * Note: this is a *synchronous* call - parents must not use async templating or rendering
+     *       if this is used before rendering a view, otherwise containers may not be available
+     */
+    activateAndRenderParents: function() {
+      if (!this.parent) {
+        throw new Error("activateAndRenderParents called with null parent!");
+      }
+      this.parent.childActivating();
+    },
+    /**
      * activates the view and calls callback when ready to render (eg when parents are rendered)
      */
     activate: function(callback) {
@@ -420,6 +437,9 @@ var Tyro = Tyro || {};
             //   - in console, do: sectionView.teardown(); contentView.activate(); contentView.render();
             //   - or perhaps we have an "activateParents" method for times we're not going to add
             //   - render() to a callback (i.e. when not async)
+            //**** NB!! ****
+            //Current workaround for the above, do the following:
+            // sectionView.teardown(); contentView.activateAndRenderParents(); contentView.render();
             that.active = true;
             that.activating = false;
           };
@@ -460,6 +480,7 @@ var Tyro = Tyro || {};
         item = $(item);
         item.attr("id",item.attr("data-id"));        
       });
+
     }
   });
 
@@ -523,6 +544,9 @@ var Tyro = Tyro || {};
       contentView.render();
     });
   });
+
+  //TODO: perhaps name this JSVC instead (javascript view controller - as there's no models)
+  //TODO: investigate observer pattern for template views which currently publish messages for controllers?
 
 
 
