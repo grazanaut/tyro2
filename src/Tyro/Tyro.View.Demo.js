@@ -9,6 +9,12 @@ var Tyro = Tyro || {};
     return typeof fn === "function";
   }
 
+  function defaultConstructor() {
+    if (isFunc(this.inherited)) {
+      this.inherited.apply(this, arguments);
+    }    
+  }
+
   /**
    * Simple inheritance behaviour, giving access to "this.inherited()" in methods
    * @param {String} className The name of the new class
@@ -22,9 +28,16 @@ var Tyro = Tyro || {};
         _extendingWith = Base._extendingWith,
         basePt = Base.prototype;
 
-    if (typeof classDef.constructor !== "undefined") {
-      classDef._constructor = classDef.constructor;
+    //check hasOwnProperty() to ensure it's a defined constructor and not the "[native code]" one from the prototype
+    if (typeof classDef.constructor === "undefined" || !classDef.hasOwnProperty("constructor")) {
+      classDef.constructor = defaultConstructor;
     }
+    else if (!isFunc(classDef.constructor)) {
+      throw new Error("defining klass() " + className + " ==> constructor property must be a method!");
+    }
+
+    classDef._constructor = classDef.constructor;
+
     //we have constructor in new ._constructor property,
     //so we delete .constructor to prevent needless iteration later
     //as we'll set constructor to *actual* constructor later
@@ -56,14 +69,17 @@ var Tyro = Tyro || {};
     //define our closure-creation method for creating inherited() functionality
     function overrideMethod(baseFn, childFn){
       return function() {
+        var returnVal, _inherited;
         //store inherited in case it already exists
-        var _inherited = this.inherited;
+        _inherited = this.inherited;
         //make inherited() the base method
         this.inherited = baseFn;
         //call childFn now that inherited() exists
-        childFn.apply(this, arguments);
+        returnVal = childFn.apply(this, arguments);
         //reset this.inherited
         this.inherited = _inherited;
+
+        return returnVal;
       };
     }
 
@@ -75,6 +91,7 @@ var Tyro = Tyro || {};
         if (!isFunc(prop)) {
           throw new Error("Attempt to override function with non-function");
         }
+        if (p === "constructor") debugger;
         prop = overrideMethod(baseProp, prop);
       }
       Class.prototype[p] = prop;
@@ -281,10 +298,9 @@ var Tyro = Tyro || {};
       var i = this.children.length;
       while (i--) {
         this.children[i].teardown();
-        //if the child is not a layout we also remove it
-        if (!this.children[i].isLayout()) {
-          this.removeChildByIndex(i);
-        }
+        //We no longer remove children
+        // - They are either active and rendered, or torndown and inactive. The only
+        //   time we remove them is if they are being attached to a different parent
       }
       this.active = false; //todo: should this be before or after doTeardown?
       //then self
@@ -364,15 +380,27 @@ var Tyro = Tyro || {};
      * 
      */
     childActivating: function(child, callback){
-      var index, container;
-      index = this.indexOfchild(child);
+      var i, index, item;
 
-      if (index >= 0){ //i.e. if child is in this parent
-        container = child.container;
+      if (!this.isActive()){
+        this.render();
+        console.log("proper async stuff and getViewData or similar needs to be done for render (or to check that it's a partial view)")
+        this.activate(callback);
       }
-      else {
-        throw new Error("childActivating was now called with a view that is actually a child!");
+
+      index = this.indexOfChild(child);
+
+      if (isNaN(index) || index < 0){ //i.e. if child not a child of this
+        throw new Error("childActivating was not called with a view that is actually a child!");
       }
+      for (i = 0; i < this.children.length; i++) {
+        item = this.children[i];
+        //only teardown if it was in the same container, but is *not* the same child
+        if (item !== child && item.container === child.container) {
+          this.children[i].teardown();
+        }
+      }
+      callback();
     },
     /**
      * activates the view and calls callback when ready to render (eg when parents are rendered)
@@ -380,6 +408,7 @@ var Tyro = Tyro || {};
     activate: function(callback) {
       var that = this,
           callCallbacks = function(){
+            that.active = true;
             that._respondToActivationCallbacks();
             that.activating = false;
           };
@@ -393,22 +422,38 @@ var Tyro = Tyro || {};
 
       this.activating = true;
 
-      if (!this.parent.isActive()) {
-        this.parent.activate(callCallbacks);
-      }
-      else {
-        this.parent.childActivating()
-        throw new Error("teardown currently rendered view, and then call callbacks");
-      }
+      //parent.childActivating also tears down any active child views with same container
+      this.parent.childActivating(this, callCallbacks); 
+    },
+    teardown: function(){
+      this.inherited();
+      $(this.container).empty();
     },
     render: function(){
       $(this.container).html($(".templates").find(this.templateId).html());
     }
   });
 
-  console.err("render method or similar should check that a parent view actually contains the container the child requires, somehow... (so child doesnt replace parent's parent,etc if wrong heirarchy defined)");
+  console.error("render method or similar should check that a parent view actually contains the container the child requires, somehow... (so child doesnt replace parent's parent,etc if wrong heirarchy defined)");
+  console.log("Hello, World");
 
-  var PageView = klass("PageView", BaseView, {
+  var DemoView = klass("DemoView", BaseView, {
+    renderCount: 0,
+    teardownCount: 0,
+    render: function(){
+      this.renderCount++;
+      this.inherited();      
+    },
+    teardown: function(){
+      this.teardownCount++;
+      this.inherited();      
+    },
+    logRenders: function(){
+      console.warn(this.____className + " rendered: " + this.renderCount + " torndown: " + this.teardownCount);
+    }
+  });
+
+  var PageView = klass("PageView", DemoView, {
     constructor: function(parent) {
       this.inherited(parent);
       this.container = "#topLevelContainer";
@@ -416,7 +461,7 @@ var Tyro = Tyro || {};
     }
   });
 
-  var SectionView = klass("SectionView", BaseView, {
+  var SectionView = klass("SectionView", DemoView, {
     constructor: function(parent) {
       this.inherited(parent);
       this.container = "#pageContent";
@@ -424,7 +469,7 @@ var Tyro = Tyro || {};
     }
   });
 
-  var ContentView = klass("ContentView", BaseView, {
+  var ContentView = klass("ContentView", DemoView, {
     constructor: function(parent) {
       this.inherited(parent);
       this.container = "#sectionContent";
@@ -433,13 +478,14 @@ var Tyro = Tyro || {};
   });
 
   $(document).ready(function(){
-    var pageView = new PageView(null);
-    var sectionView = new SectionView(pageView);
-    var contentView = new ContentView(sectionView);
+    //attach to window so vars are exposed for testing by direct manipulation in dev tools console
+    window.pageView = new PageView(null);
+    window.sectionView = new SectionView(pageView);
+    window.contentView = new ContentView(sectionView);
     //pageView.render();
-    sectionView.activate();
-    sectionView.render();
-    contentView.render();
+    contentView.activate(function(){
+      contentView.render();
+    });
   });
 
 
