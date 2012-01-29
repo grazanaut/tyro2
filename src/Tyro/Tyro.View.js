@@ -19,7 +19,7 @@ var Tyro = Tyro || {};
       doNothing = Utils.doNothing,
       klass = Utils.klass;
 
-  var BaseView = Tyro.BaseView = klass("BaseView", AbstractView, {
+  var View = Tyro.View = klass("View", AbstractView, {
     constructor: function(parent) {
       this.inherited(parent);
       this._activationCallbacks = [];

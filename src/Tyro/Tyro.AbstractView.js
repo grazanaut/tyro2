@@ -72,6 +72,7 @@ var Tyro = Tyro || {};
       //children first
       var i = this.children.length;
       while (i--) {
+        //TODO: should we check if active, and ignore if not, or is it better just to teardown anyway?
         this.children[i].teardown();
         //We no longer remove children from the tree when tearing down
         // - They are either active and rendered, or torndown and inactive. The only
@@ -80,48 +81,6 @@ var Tyro = Tyro || {};
       this.active = false; //todo: should this be before or after doTeardown?
       //then self
       this.doTeardown();
-    },
-    /**
-     * @public
-     * @function
-     * Calls teardown on all children, and then self
-     */
-    //TODO: check if this method is used - remove if not
-    teardownActiveDescendants: function() {
-      this.traverseDescendants({
-        after: function(item){
-          if (item.isActive()) {
-            item.teardown();
-            if (item.parent) {
-              item.parent.removeChild(item);
-            }
-          }
-        }
-      });
-      //TODO: refactor - tearing down "this" means it doesnt do what it says on the tin
-      this.teardown();
-      this.active = false;
-    },
-    /**
-     * @public
-     * @function
-     * Calls teardown on all children which are layouts, and then self
-     */
-    //TODO: check if this method is used - remove if not
-    teardownActiveDescendantLayouts: function() {
-      this.traverseDescendants({
-        after: function(item){
-          if (item.isActive() && item.isLayout()) {
-            item.teardown();
-            //if (item.parent) {
-            //  item.parent.removeChild(item);
-            //}
-          }
-        }
-      });
-      //TODO: refactor - tearing down "this" means it doesnt do what it says on the tin
-      this.teardown();
-      this.active = false;
     },
     /** 
      * Tears down any 
