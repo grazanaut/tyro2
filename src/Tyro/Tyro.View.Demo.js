@@ -380,12 +380,16 @@ var Tyro = Tyro || {};
      * 
      */
     childActivating: function(child, callback){
-      var i, index, item;
+      var i, index, item,
+          that = this;
 
       if (!this.isActive()){
-        this.render();
         console.log("proper async stuff and getViewData or similar needs to be done for render (or to check that it's a partial view)")
-        this.activate(callback);
+        this.activate(function(){
+          that.render();
+          callback();
+        });
+        return; 
       }
 
       index = this.indexOfChild(child);
@@ -408,10 +412,19 @@ var Tyro = Tyro || {};
     activate: function(callback) {
       var that = this,
           callCallbacks = function(){
-            that.active = true;
             that._respondToActivationCallbacks();
+            console.error("TODO: optional arg for activate() method to auto-render? - see comments below");
+            //1. not sure if active should be set before or after callbacks
+            //2. if the following steps are followed, we end up with errors:
+            //   - load page
+            //   - in console, do: sectionView.teardown(); contentView.activate(); contentView.render();
+            //   - or perhaps we have an "activateParents" method for times we're not going to add
+            //   - render() to a callback (i.e. when not async)
+            that.active = true;
             that.activating = false;
           };
+
+      this.activating = true;
 
       this._activationCallbacks.push(callback);
 
@@ -419,8 +432,6 @@ var Tyro = Tyro || {};
         callCallbacks();
         return; //========> nothing more to do...
       }
-
-      this.activating = true;
 
       //parent.childActivating also tears down any active child views with same container
       this.parent.childActivating(this, callCallbacks); 
@@ -430,7 +441,25 @@ var Tyro = Tyro || {};
       $(this.container).empty();
     },
     render: function(){
-      $(this.container).html($(".templates").find(this.templateId).html());
+      var $container, html;
+
+      if (this.isActive() && !this.activating) {
+        throw new Error("Render called on active view when this.activating is false - did you forget to teardown the view first?");  
+      }
+
+      $container = $(this.container);
+      if ($container.length < 1) {
+        throw new Error("Attempt to render view with unrendered container");
+      }
+
+      html = $(".templates").find(this.templateId).html();
+      $container.html(html);
+
+      //TODO: currently a hack for the demo, to add ids to templates (we don't want in real ids until templates are rendered)
+      $container.find("[data-id]").each(function(idx,item){
+        item = $(item);
+        item.attr("id",item.attr("data-id"));        
+      });
     }
   });
 
@@ -441,15 +470,22 @@ var Tyro = Tyro || {};
     renderCount: 0,
     teardownCount: 0,
     render: function(){
-      this.renderCount++;
       this.inherited();      
+      this.renderCount++;
+      this.logRenders();
     },
     teardown: function(){
-      this.teardownCount++;
       this.inherited();      
+      this.teardownCount++;
+      this.logRenders();
     },
     logRenders: function(){
-      console.warn(this.____className + " rendered: " + this.renderCount + " torndown: " + this.teardownCount);
+      function fn(item){
+        console.warn(item.____className + " rendered: " + item.renderCount + " torndown: " + item.teardownCount);
+      }
+      var head = this.getHead();
+      fn(head);
+      head.traverseDescendants({ before: fn });
     }
   });
 
