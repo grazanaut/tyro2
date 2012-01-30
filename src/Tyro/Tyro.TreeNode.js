@@ -44,7 +44,12 @@ var Tyro = Tyro || {};
     setParent: function(p) {
       var oldParent = this.parent;
       if(p !== null && !(p instanceof TreeNode)) {
-        throw new TypeError("Tyro: TreeNode: Parent must be null or type TreeNode");
+        //TODO: replace the following once we use *real* inheritance in backoffice, rather than this extend crap
+        //throw new TypeError("Tyro: TreeNode: Parent must be null or type TreeNode");
+        //TODO: remove the following once we can reinstate the above
+        if (!isFunc(p.addChild)) {
+          throw new TypeError("Tyro: TreeNode: Parent must be null or type TreeNode");
+        }
       }
       if (this.parent === p) return; //prevent needless recursion
       if (!!p) {
@@ -126,7 +131,12 @@ var Tyro = Tyro || {};
     addChild: function(child) {
       var oldParent = child.parent;
       if(!(child instanceof TreeNode)) {
-        throw new TypeError("Tyro: TreeNode: addChild: Must provide an instance of TreeNode");
+        //TODO: replace the following once we use *real* inheritance in backoffice, rather than this extend crap
+        //throw new TypeError("Tyro: TreeNode: addChild: Must provide an instance of TreeNode");
+        //TODO: remove the following once we can reinstate the above
+        if (!isFunc(child.removeFromParent) || !isFunc(child.parentChanged)) {
+          throw new TypeError("Tyro: TreeNode: addChild: Must provide an instance of TreeNode");
+        }
       }
       if (child.parent === this) return; //nothing to do
       child.removeFromParent(); //remove from previous parent if exists

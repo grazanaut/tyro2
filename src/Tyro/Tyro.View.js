@@ -40,7 +40,7 @@ var Tyro = Tyro || {};
       callback = callback || doNothing;
 
       if (!this.isActive()){
-        console.log("proper async stuff and getViewData or similar needs to be done for render (or to check that it's a partial view)")
+        console.warn("proper async stuff and getViewData or similar needs to be done for render (or to check that it's a partial view)")
         this.activate(function(){
           that.render();
           callback();
@@ -93,18 +93,37 @@ var Tyro = Tyro || {};
             // sectionView.teardown(); contentView.activateAndRenderParents(); contentView.render();
             that.active = true;
             that.activating = false;
+          },
+          logIt = function(m){
+            var i = 0, s = "";
+            that.traverseUpwards(function(){ i++ });
+            while(i--) s += "    ";
+            console.log(s + "View with container: '" + that.container + "': " + m);  
           };
+
+      if (isFunc(callback)) {
+        this._activationCallbacks.push(callback);
+        //console.dir(this);
+        //for (var i = 0; i < this._activationCallbacks.length; i++) console.log(this._activationCallbacks[i].toString());
+      }
+
+      if (!!this.activating) {
+        logIt("already activating, new callback registered, returning");
+        //if activating already, all we need to do is register the callback and return, as we allow the original activation kickoff to track/remove activation flag and call all callbacks
+        return; //important -> prevent infinite looping if view publishes message to render a sibling child which then tries to reactivate this!
+      }
 
       this.activating = true;
 
-      this._activationCallbacks.push(callback);
 
       if (this.isActive() || !this.parent) {
+        logIt("already active or has no parent, new callback registered, calling all callbacks, returning");
         callCallbacks();
         return; //========> nothing more to do...
       }
 
       //parent.childActivating also tears down any active child views with same container
+      logIt("not active - activating parent");
       this.parent.childActivating(this, callCallbacks); 
     },
     teardown: function(){
