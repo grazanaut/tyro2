@@ -57,7 +57,13 @@ var Tyro = Tyro || {};
     isActive: function(){
       return this.active;
     },
-    teardown children if parent changes!?
+    /**
+     * Ensure that teardown is called if parent changes
+     * @override
+     */
+    parentChanged: function(oldParent) {
+      this.teardown();
+    },
     /**
      * @abstract
      * Child Classes should override this method to implement teardown behaviours

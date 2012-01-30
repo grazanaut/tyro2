@@ -42,6 +42,7 @@ var Tyro = Tyro || {};
      */
     parent: null,
     setParent: function(p) {
+      var oldParent = this.parent;
       if(p !== null && !(p instanceof TreeNode)) {
         throw new TypeError("Tyro: TreeNode: Parent must be null or type TreeNode");
       }
@@ -50,15 +51,23 @@ var Tyro = Tyro || {};
         p.addChild(this);
       }
       this.parent = p; //must be after addChild call, to prevent recursion
+      this.parentChanged(oldParent);
       console.warn("Need to ensure that switching from one parent to another calls teardown!! - possibly child class override to do this?");
     },
     removeFromParent: function() {
+      var oldParent = this.parent;
       if (!!this.parent) {
         //remove from previous parent
         this.parent.removeChild(child);
         this.parent = null;
+        this.parentChanged(oldParent);
       }
     },
+    /**
+     * Should be overridden in descendant classes to ensure that things such as teardown, etc are called
+     * @abstract
+     */
+    parentChanged: function(oldParent) {},
     /**
      * Gets the top level (head) of the partial view by traversing up the chain of parents
      * @public
@@ -116,6 +125,7 @@ var Tyro = Tyro || {};
      * @param {TreeNode} child The child node to add
      */
     addChild: function(child) {
+      var oldParent = child.parent;
       if(!(child instanceof TreeNode)) {
         throw new TypeError("Tyro: TreeNode: addChild: Must provide an instance of TreeNode");
       }
@@ -123,6 +133,7 @@ var Tyro = Tyro || {};
       child.removeFromParent(); //remove from previous parent if exists
       this.children.push(child);
       child.parent = this; //set child's parent directly, rather than calling setParent() -> we don't want infinite recursion happening now, do we ;-)
+      child.parentChanged(oldParent);
     },
     /**
      * Finds the index of passed in child
@@ -148,7 +159,7 @@ var Tyro = Tyro || {};
     removeChild: function(child) {
       var index = this.indexOfChild(child);
       //could check !isNaN(index) instead, but in case we change to return -1, the following also works
-      if (index >= 0) return this.removeChildByIndex();
+      if (index >= 0) return this.removeChildByIndex(index);
     },
     removeChildByIndex: function(index) {
       var child = this.children[index];
