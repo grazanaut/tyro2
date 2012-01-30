@@ -52,7 +52,6 @@ var Tyro = Tyro || {};
       }
       this.parent = p; //must be after addChild call, to prevent recursion
       this.parentChanged(oldParent);
-      console.warn("Need to ensure that switching from one parent to another calls teardown!! - possibly child class override to do this?");
     },
     removeFromParent: function() {
       var oldParent = this.parent;
@@ -164,8 +163,7 @@ var Tyro = Tyro || {};
     removeChildByIndex: function(index) {
       var child = this.children[index];
       this.children.splice(index,1);
-      child.setParent(null);
-      console.warn("need to ensure that this calls teardown if need be - possibly child class override to do this?");
+      child.setParent(null); //also calls parentChanged() which will be used for cleanup such as teardown, etc
       return child;
     }
   });
