@@ -8,6 +8,16 @@ Tyro is another (super-lightweight) JavaScript (MVC) framework inspired by Backb
 
 Tyro2 is a fork of Tyro which modifies some naming conventions and code within the Page Controller. Forked and renamed because this modifies the external interface
 
+TODO!!
+======
+
+Make libraries pluggable, so jQuery is default but others can be plugged in instead - done in such a way that jQuery is not even referenced if not used
+Refactor some of the base controller stuff out into an app-specific base controller which inherits from this
+Remove PageController completely
+Write more tests
+Move some more platform-js-backoffice BaseView code into Tyro.View if it is generic enough
+
+
 In slightly more detail
 -----------------------
 
