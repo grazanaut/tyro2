@@ -17,12 +17,15 @@ var Tyro = Tyro || {};
       //Functions
       isFunc = Utils.isFunc,
       doNothing = Utils.doNothing,
-      klass = Utils.klass;
+      klass = Utils.klass,
+      //module singletons
+      deprecationWarnings = {
+        onBeforeTeardown: 0
+      };
 
   var View = Tyro.View = klass("View", AbstractView, {
     constructor: function(parent) {
       this.inherited(parent);
-      this._activationCallbacks = [];
       this._renderOnActivate = false; //default - ONLY set this to true IFF rendering is not asyncronous - i.e. we know that we dont need to load template, data, etc from ajax
       this._activating = false;
     },
@@ -30,6 +33,7 @@ var Tyro = Tyro || {};
       var callback;
       this.active = true;
       this._activating = false;
+      if (!this._activationCallbacks) return;
       while(this._activationCallbacks.length > 0) {
         callback = this._activationCallbacks[0];
         if (callback !== doNothing) {
@@ -39,6 +43,10 @@ var Tyro = Tyro || {};
       }
     },
     _addActivationCallback: function(callback) {
+      if (!this._activationCallbacks) {
+        //dont create in constructor - guard against inheritance types which may attach this to prototype rather than instance
+        this._activationCallbacks = []; 
+      }
       this._activationCallbacks.push(callback);
       this._logIt("added new callback: " + callback.toString().replace(/(\r\n|\n|\r)/gm," "));
 
@@ -47,7 +55,7 @@ var Tyro = Tyro || {};
       console.log(this._nodeDepthString() + this.constructor.name + " (container: '" + this.container + "'): " + m);  
     },
     isActivating: function() {
-      return (this._activating || this._activationCallbacks.length > 0);
+      return (this._activating || (this._activationCallbacks && this._activationCallbacks.length > 0));
     },
     /**
      * 
@@ -134,7 +142,10 @@ var Tyro = Tyro || {};
 
       if (isFunc(this.onBeforeTeardown)) {
         this.onBeforeTeardown();
-        console.warn("View#onBeforeTeardown is deprecated - use beforeTeardown() instead");
+        if (deprecationWarnings.onBeforeTeardown++ < 5) {
+          //arbitrary number of warnings, but lets not hassle people *too* much...
+          console.warn("View(" + this.constructor.name + this.container + ")#onBeforeTeardown is deprecated - use beforeTeardown() instead");
+        }
       }
       this.beforeTeardown();
       this.teardownComponents(); //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance

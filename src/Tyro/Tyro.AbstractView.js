@@ -46,7 +46,13 @@ var Tyro = Tyro || {};
       this.id = id;
       this.active = false;
 
-      this._onceObservers = {};
+    },
+    _onceObservers: function(){
+      //create in a method to guard against non-constructor inheritance issues (ensure separate instance per object, not per prototype)
+      if (!this._onceObserversHash) {
+        this._onceObserversHash = {};
+      }
+      return this._onceObserversHash;
     },
     //Observable-style methods
     once: function(message, callback, scope) {
