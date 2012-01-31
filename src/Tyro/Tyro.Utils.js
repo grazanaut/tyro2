@@ -133,6 +133,37 @@ var Tyro = Tyro || {};
 
     //return the new class
     return Class;
-  }  
+  } 
+  
+  
+  
+//utility methods that were private to PageController module. No longer used, but may be useful, so keeping
+var UnusedUtils = {
+  matches: function(item, queryOrFunction) {
+    if ($.isFunction(queryOrFunction)) {
+      return queryOrFunction(item);
+    }
+    var itemprop, prop;
+    for (prop in queryOrFunction) {
+      itemprop = $.isFunction(item[prop]) ? item[prop]() : item[prop];
+      if (itemprop !== queryOrFunction[prop]) {
+        return false;
+      }
+    }
+    return true;
+  },
+  filter: function(collection, queryOrFunction) {
+    var i, item,
+        results = [];
+    for (i in collection) {
+      item = collection[i];
+      if (Utils.matches(item,queryOrFunction)) {
+        results.push(item);
+      }
+    }
+    return results;
+  }
+};
+ 
   	
 }());

@@ -20,8 +20,7 @@ var Tyro = Tyro || {};
       klass = Utils.klass;
 
 
-  console.error("render method or similar should check that a parent view actually contains the container the child requires, somehow... (so child doesnt replace parent's parent,etc if wrong heirarchy defined)");
-  console.log("Hello, World");
+  //TODO: render method or similar should check that a parent view actually contains the container the child requires, somehow... (so child doesnt replace parent's parent,etc if wrong heirarchy defined)
 
   var DemoView = klass("DemoView", View, {
     renderCount: 0,
