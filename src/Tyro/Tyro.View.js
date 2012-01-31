@@ -90,8 +90,9 @@ var Tyro = Tyro || {};
     activate: function(callback) {
 
       function internalRender() {
+        this.active = true; //prevent infinite recursion/iteration
         this.render();
-        this.fire("Rendered");
+        this.fire("Rendered");//TODO: move into render() method?
       }
 
       if (this.isActive()) {
@@ -109,8 +110,7 @@ var Tyro = Tyro || {};
 
       if (!this.parent) {
         if (!!this._renderOnActivate) {
-          this.render();
-          this.fire("Rendered");//TODO: move into render() method?
+          internalRender.call(this);
         }
         this._respondToActivationCallbacks();
         return;
