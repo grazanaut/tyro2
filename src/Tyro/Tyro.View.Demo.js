@@ -27,12 +27,35 @@ var Tyro = Tyro || {};
     renderCount: 0,
     teardownCount: 0,
     render: function(){
-      this.inherited();      
+      this.inherited();   
+      
+      var $container, html;
+
+      if (this.isActive() && !this.isActivating()) {
+        throw new Error("Render called on active view when this.isActivating() is false - did you forget to teardown the view first?");  
+      }
+
+      $container = $(this.container);
+      if ($container.length < 1) {
+        throw new Error("Attempt to render view " + (this.constructor.name || this.____className) + " with unrendered container " + this.container);
+      }
+
+      html = $(".templates").find(this.templateId).html();
+      $container.html(html);
+
+      //TODO: currently a hack for the demo, to add ids to templates (we don't want in real ids until templates are rendered)
+      $container.find("[data-id]").each(function(idx,item){
+        item = $(item);
+        item.attr("id",item.attr("data-id"));        
+      });
+         
       this.renderCount++;
       this.logRenders();
     },
     teardown: function(){
-      this.inherited();      
+      this.inherited();   
+         
+      $(this.container).empty();
       this.teardownCount++;
       this.logRenders();
     },

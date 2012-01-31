@@ -89,8 +89,14 @@ var Tyro = Tyro || {};
         var returnVal, _inherited;
         //store inherited in case it already exists
         _inherited = this.inherited;
-        //make inherited() the base method
-        this.inherited = baseFn;
+        //make inherited() the base method, or an empty method if no base exists
+        //TODO: whether to raise exception or not, unsure - for now we just stub out the base
+        if (isFunc(baseFn)) {
+          this.inherited = baseFn;
+        }
+        else {
+          this.inherited = doNothing;	
+        }
         //call childFn now that inherited() exists
         returnVal = childFn.apply(this, arguments);
         //reset this.inherited
@@ -104,12 +110,20 @@ var Tyro = Tyro || {};
     for (p in classDef) {
       prop = classDef[p];
       baseProp = basePt[p];
-      if (isFunc(baseProp)) {
-        if (!isFunc(prop)) {
+      if (isFunc(prop)) {
+        //*always* call override (even if baseProp doesnt exist)
+        //otherwise if a child of prop calls inherited() (inherited becomes prop), and prop calls inherited, it means that prop will recurse infinitely
+        //eg:
+        //  class A (doesnt have method f)
+        //  class B (has method f, calls inherited() because developer is a goon)
+        //  class C (has method f, calls inherited())
+        //  because B.f isn't wrapped (because class A doesn't have f), B.inherited() points to B.f()
+        prop = overrideMethod(baseProp, prop);     	
+      }
+      else {
+        if (isFunc(baseProp)) {
           throw new Error("Attempt to override function with non-function");
         }
-        if (p === "constructor") debugger;
-        prop = overrideMethod(baseProp, prop);
       }
       Class.prototype[p] = prop;
     }

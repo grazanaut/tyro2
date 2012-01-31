@@ -66,6 +66,28 @@ var Tyro = Tyro || {};
       }
       //repeat for non-one-time observers if need be
     },
+    detach: function(message, callback, scope) {
+      var obs, i;
+      if (typeof message !== "string") {
+        throw new Error("Tyro.AbstractView#detach: message is a mandatory argument!");
+      }
+      if (typeof callback !== "function") {
+        scope = callback;
+        callback = null;
+      }
+      obs = this._onceObservers[message];
+      i = (obs && obs.length) || 0;
+      while (i--) {
+        if (
+            (!!scope && !!callback && obs[i].scope === scope && obs[i].callback === callback) ||
+            (!!scope && !callback && obs[i].scope === scope) ||
+            (!scope && !!callback && obs[i].callback === callback)
+           ) {
+          obs.splice(i,1);
+        }
+      }
+      //repeat for non-one-time observers if need be
+    },
     isLayout: function() {
       return !!this.id; //considered a layout if it has an id
     },

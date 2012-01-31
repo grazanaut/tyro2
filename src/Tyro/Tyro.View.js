@@ -24,10 +24,12 @@ var Tyro = Tyro || {};
       this.inherited(parent);
       this._activationCallbacks = [];
       this._renderOnActivate = false; //default - ONLY set this to true IFF rendering is not asyncronous - i.e. we know that we dont need to load template, data, etc from ajax
+      this._activating = false;
     },
     _respondToActivationCallbacks: function() {
       var callback;
       this.active = true;
+      this._activating = false;
       while(this._activationCallbacks.length > 0) {
         callback = this._activationCallbacks[0];
         if (callback !== doNothing) {
@@ -45,7 +47,7 @@ var Tyro = Tyro || {};
       console.log(this._nodeDepthString() + this.constructor.name + " (container: '" + this.container + "'): " + m);  
     },
     isActivating: function() {
-      return (this._activationCallbacks.length > 0);
+      return (this._activating || this._activationCallbacks.length > 0);
     },
     /**
      * 
@@ -89,12 +91,6 @@ var Tyro = Tyro || {};
      */
     activate: function(callback) {
 
-      function internalRender() {
-        this.active = true; //prevent infinite recursion/iteration
-        this.render();
-        this.fire("Rendered");//TODO: move into render() method?
-      }
-
       if (this.isActive()) {
         isFunc(callback) && callback();
         return;
@@ -105,49 +101,40 @@ var Tyro = Tyro || {};
         return;
       }
 
-      //add this *after* the isActivating() call - as that call uses _activationCallbacks.length to check      
+      //add this *after* the isActivating() call - as that call uses _activationCallbacks.length || this._activating to check
+      this._activating = true;
       isFunc(callback) && this._addActivationCallback(callback);
 
       if (!this.parent) {
         if (!!this._renderOnActivate) {
-          internalRender.call(this);
+          this._internalDoRender();
         }
         this._respondToActivationCallbacks();
         return;
       }
 
       if (!!this._renderOnActivate) {
-        this.parent.once("Rendered", internalRender, this);
+        this.parent.once("Rendered", this._internalDoRender, this);
       }
 
       this.parent.once("Rendered", this._respondToActivationCallbacks, this);
       this.parent.childActivating(this);
     },
     teardown: function(){
-      this.inherited();
-      $(this.container).empty();
+      this.inherited(); //also sets active = false
+      this.parent.detach("Rendered", this._respondToActivationCallbacks, this);
+      this.parent.detach("Rendered", this._internalDoRender, this);
+      this._activationCallbacks = []; //remove
+      this._activating = false;
+    },
+    _internalDoRender: function() {
+        this.active = true; //prevent infinite recursion/iteration
+        this.render();
+        this.fire("Rendered");//TODO: move into render() method?
+        this._activating = false;
     },
     render: function(){
-      var $container, html;
-
-      if (this.isActive() && !this.isActivating()) {
-        throw new Error("Render called on active view when this.isActivating() is false - did you forget to teardown the view first?");  
-      }
-
-      $container = $(this.container);
-      if ($container.length < 1) {
-        throw new Error("Attempt to render view " + (this.constructor.name || this.____className) + " with unrendered container " + this.container);
-      }
-
-      html = $(".templates").find(this.templateId).html();
-      $container.html(html);
-
-      //TODO: currently a hack for the demo, to add ids to templates (we don't want in real ids until templates are rendered)
-      $container.find("[data-id]").each(function(idx,item){
-        item = $(item);
-        item.attr("id",item.attr("data-id"));        
-      });
-
+      this.inherited();
     }
   });
 
