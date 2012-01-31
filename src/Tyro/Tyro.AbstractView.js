@@ -56,14 +56,14 @@ var Tyro = Tyro || {};
     },
     //Observable-style methods
     once: function(message, callback, scope) {
-      var obs = this._onceObservers[message] = this._onceObservers[message] || [];
+      var obs = this._onceObservers()[message] = this._onceObservers()[message] || [];
       obs.push({
         callback: callback,
         scope: scope
       }); 
     },
     fire: function(message) {
-      var obs = this._onceObservers[message],
+      var obs = this._onceObservers()[message],
           ob;
       if (obs instanceof Array) {
         while (ob = obs.shift()) {
@@ -81,7 +81,7 @@ var Tyro = Tyro || {};
         scope = callback;
         callback = null;
       }
-      obs = this._onceObservers[message];
+      obs = this._onceObservers()[message];
       i = (obs && obs.length) || 0;
       while (i--) {
         if (

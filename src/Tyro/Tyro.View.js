@@ -154,8 +154,10 @@ var Tyro = Tyro || {};
 
       this.inherited(); //also sets active = false
 
-      this.parent.detach("Rendered", this._respondToActivationCallbacks, this);
-      this.parent.detach("Rendered", this._internalDoRender, this);
+      if (!!this.parent) {
+        this.parent.detach("Rendered", this._respondToActivationCallbacks, this);
+        this.parent.detach("Rendered", this._internalDoRender, this);
+      }
       this._activationCallbacks = []; //remove
       this._activating = false;
 
