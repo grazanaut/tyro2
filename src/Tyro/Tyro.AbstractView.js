@@ -41,10 +41,30 @@ var Tyro = Tyro || {};
      * @param {string} [id] The id of this view, IF it's a layout
      */
     constructor: function(parent, id) {
+      this.inherited(parent);
+
       this.id = id;
       this.active = false;
 
-      this.inherited(parent);
+      this._onceObservers = {};
+    },
+    //Observable-style methods
+    once: function(message, callback, scope) {
+      var obs = this._onceObservers[message] = this._onceObservers[message] || [];
+      obs.push({
+        callback: callback,
+        scope: scope
+      }); 
+    },
+    fire: function(message) {
+      var obs = this._onceObservers[message],
+          ob;
+      if (obs instanceof Array) {
+        while (ob = obs.shift()) {
+          ob.callback.call(ob.scope);
+        }
+      }
+      //repeat for non-one-time observers if need be
     },
     isLayout: function() {
       return !!this.id; //considered a layout if it has an id

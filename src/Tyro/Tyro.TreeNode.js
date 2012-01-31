@@ -58,7 +58,7 @@ var Tyro = Tyro || {};
       this.parent = p; //must be after addChild call, to prevent recursion
       this.parentChanged(oldParent);
     },
-    removeFromParent: function() {
+    removeFromParent: function(child) {
       var oldParent = this.parent;
       if (!!this.parent) {
         //remove from previous parent
@@ -175,7 +175,19 @@ var Tyro = Tyro || {};
       this.children.splice(index,1);
       child.setParent(null); //also calls parentChanged() which will be used for cleanup such as teardown, etc
       return child;
-    }
+    },
+    //methods purely for debugging
+    _nodeDepth: function() {
+      var i = 0;
+      this.traverseUpwards(function(){ i++ });
+      return i;
+    },
+    _nodeDepthString: function() {
+      var s = "",
+          i = this._nodeDepth();
+      while(i--) s += "    ";
+      return s;      
+    } 
   });
 
 }());

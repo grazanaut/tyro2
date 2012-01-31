@@ -51,6 +51,7 @@ var Tyro = Tyro || {};
       this.inherited(parent);
       this.container = "#topLevelContainer";
       this.templateId = "#page";
+      this._renderOnActivate = true;
     }
   });
 
@@ -59,6 +60,7 @@ var Tyro = Tyro || {};
       this.inherited(parent);
       this.container = "#pageContent";
       this.templateId = "#section";
+      this._renderOnActivate = true;
     }
   });
 

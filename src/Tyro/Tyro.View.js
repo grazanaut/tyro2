@@ -23,29 +23,38 @@ var Tyro = Tyro || {};
     constructor: function(parent) {
       this.inherited(parent);
       this._activationCallbacks = [];
+      this._renderOnActivate = false; //default - ONLY set this to true IFF rendering is not asyncronous - i.e. we know that we dont need to load template, data, etc from ajax
     },
     _respondToActivationCallbacks: function() {
       var callback;
-      while(callback = this._activationCallbacks.shift()) {
-        callback();
+      this.active = true;
+      while(this._activationCallbacks.length > 0) {
+        callback = this._activationCallbacks[0];
+        if (callback !== doNothing) {
+          callback();
+        }
+        this._activationCallbacks.shift(); //must be done *after* the callback is called as isActivating() is based on length of this array
       }
+    },
+    _addActivationCallback: function(callback) {
+      this._activationCallbacks.push(callback);
+      this._logIt("added new callback: " + callback.toString().replace(/(\r\n|\n|\r)/gm," "));
+
+    },
+    _logIt: function(m){
+      console.log(this._nodeDepthString() + this.constructor.name + " (container: '" + this.container + "'): " + m);  
+    },
+    isActivating: function() {
+      return (this._activationCallbacks.length > 0);
     },
     /**
      * 
      */
-    childActivating: function(child, callback){
-      var i, index, item,
-          that = this;
+    childActivating: function(child) {
 
-      callback = callback || doNothing;
-
-      if (!this.isActive()){
-        console.warn("proper async stuff and getViewData or similar needs to be done for render (or to check that it's a partial view)")
-        this.activate(function(){
-          that.render();
-          callback();
-        });
-        return; 
+      if (!this.isActive()) {
+        this.activate();
+        return;
       }
 
       index = this.indexOfChild(child);
@@ -60,7 +69,8 @@ var Tyro = Tyro || {};
           this.children[i].teardown();
         }
       }
-      callback();
+
+      this.fire("Rendered"); //lets observing children know we are ready
     },
     /**
      * activates and renders parents if need be (also tears down "this" view)
@@ -72,59 +82,46 @@ var Tyro = Tyro || {};
       if (!this.parent) {
         throw new Error("activateAndRenderParents called with null parent!");
       }
-      this.parent.childActivating();
+      this.parent.childActivating(this);
     },
     /**
      * activates the view and calls callback when ready to render (eg when parents are rendered)
      */
     activate: function(callback) {
-      var that = this,
-          callCallbacks = function(){
-            that._respondToActivationCallbacks();
-            console.error("TODO: optional arg for activate() method to auto-render? - see comments below");
-            //1. not sure if active should be set before or after callbacks
-            //2. if the following steps are followed, we end up with errors:
-            //   - load page
-            //   - in console, do: sectionView.teardown(); contentView.activate(); contentView.render();
-            //   - or perhaps we have an "activateParents" method for times we're not going to add
-            //   - render() to a callback (i.e. when not async)
-            //**** NB!! ****
-            //Current workaround for the above, do the following:
-            // sectionView.teardown(); contentView.activateAndRenderParents(); contentView.render();
-            that.active = true;
-            that.activating = false;
-          },
-          logIt = function(m){
-            var i = 0, s = "";
-            that.traverseUpwards(function(){ i++ });
-            while(i--) s += "    ";
-            console.log(s + "View with container: '" + that.container + "': " + m);  
-          };
 
-      if (isFunc(callback)) {
-        this._activationCallbacks.push(callback);
-        //console.dir(this);
-        //for (var i = 0; i < this._activationCallbacks.length; i++) console.log(this._activationCallbacks[i].toString());
+      function internalRender() {
+        this.render();
+        this.fire("Rendered");
       }
 
-      if (!!this.activating) {
-        logIt("already activating, new callback registered, returning");
-        //if activating already, all we need to do is register the callback and return, as we allow the original activation kickoff to track/remove activation flag and call all callbacks
-        return; //important -> prevent infinite looping if view publishes message to render a sibling child which then tries to reactivate this!
+      if (this.isActive()) {
+        isFunc(callback) && callback();
+        return;
       }
 
-      this.activating = true;
-
-
-      if (this.isActive() || !this.parent) {
-        logIt("already active or has no parent, new callback registered, calling all callbacks, returning");
-        callCallbacks();
-        return; //========> nothing more to do...
+      if (this.isActivating()) {
+        isFunc(callback) && this._addActivationCallback(callback);
+        return;
       }
 
-      //parent.childActivating also tears down any active child views with same container
-      logIt("not active - activating parent");
-      this.parent.childActivating(this, callCallbacks); 
+      //add this *after* the isActivating() call - as that call uses _activationCallbacks.length to check      
+      isFunc(callback) && this._addActivationCallback(callback);
+
+      if (!this.parent) {
+        if (!!this._renderOnActivate) {
+          this.render();
+          this.fire("Rendered");//TODO: move into render() method?
+        }
+        this._respondToActivationCallbacks();
+        return;
+      }
+
+      if (!!this._renderOnActivate) {
+        this.parent.once("Rendered", internalRender, this);
+      }
+
+      this.parent.once("Rendered", this._respondToActivationCallbacks, this);
+      this.parent.childActivating(this);
     },
     teardown: function(){
       this.inherited();
@@ -133,13 +130,13 @@ var Tyro = Tyro || {};
     render: function(){
       var $container, html;
 
-      if (this.isActive() && !this.activating) {
-        throw new Error("Render called on active view when this.activating is false - did you forget to teardown the view first?");  
+      if (this.isActive() && !this.isActivating()) {
+        throw new Error("Render called on active view when this.isActivating() is false - did you forget to teardown the view first?");  
       }
 
       $container = $(this.container);
       if ($container.length < 1) {
-        throw new Error("Attempt to render view with unrendered container");
+        throw new Error("Attempt to render view " + (this.constructor.name || this.____className) + " with unrendered container " + this.container);
       }
 
       html = $(".templates").find(this.templateId).html();
