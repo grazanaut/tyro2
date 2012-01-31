@@ -120,12 +120,32 @@ var Tyro = Tyro || {};
       this.parent.once("Rendered", this._respondToActivationCallbacks, this);
       this.parent.childActivating(this);
     },
+    beforeTeardown: function() {}, //child views should override
+    afterTeardown: function() {}, //child views should override
+    cleanupDomReferences: function() {}, //child views should override (delete jQuery references to containers, elements, etc from view)
+    removeFromDom: function() {}, //child views should override (remove view from Document)
+    teardownComponents: function {}, //child views should override //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance
+    _internalDoRemoveEvents: function{}, //TODO: not happy, see teardown method
+
     teardown: function(){
+      if (isFunc(this.onBeforeTeardown)) {
+        this.onBeforeTeardown();
+        console.warn("View#onBeforeTeardown is deprecated - use beforeTeardown() instead");
+      }
+      this.beforeTeardown();
+      this.teardownComponents(); //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance
+      this._internalDoRemoveEvents(); //TODO: again, not entirely happy....as above
+      this.removeFromDom();
+
       this.inherited(); //also sets active = false
+
       this.parent.detach("Rendered", this._respondToActivationCallbacks, this);
       this.parent.detach("Rendered", this._internalDoRender, this);
       this._activationCallbacks = []; //remove
       this._activating = false;
+
+      this.cleanupDomReferences();
+      this.afterTeardown();
     },
     _internalDoRender: function() {
         this.active = true; //prevent infinite recursion/iteration

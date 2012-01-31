@@ -110,7 +110,7 @@ var Tyro = Tyro || {};
      * @abstract
      * Child Classes should override this method to implement teardown behaviours
      */
-    doTeardown: function(){},
+    doTeardown: function(){}, //TODO: may not be needed if inheritance used properly and teardown not clobbered
 
     /**
      * @public
@@ -129,7 +129,7 @@ var Tyro = Tyro || {};
       }
       this.active = false; //todo: should this be before or after doTeardown?
       //then self
-      this.doTeardown();
+      this.doTeardown(); //TODO: may not be needed if inheritance used properly and teardown not clobbered
     },
     /** 
      * Tears down any 
