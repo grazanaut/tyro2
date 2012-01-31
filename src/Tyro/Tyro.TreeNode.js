@@ -33,7 +33,7 @@ var Tyro = Tyro || {};
      */
     constructor: function(parent) {
       //defaults
-      this.children = [];
+      this.children = null; //{Array} - instantiated on first use
       //provided properties
       this.setParent(parent);
     },
@@ -52,6 +52,7 @@ var Tyro = Tyro || {};
         }
       }
       if (this.parent === p) return; //prevent needless recursion
+
       if (!!p) {
         p.addChild(this);
       }
@@ -100,12 +101,25 @@ var Tyro = Tyro || {};
       var cbs = callbacks || {},
           child;
 
-      for (var i = 0; i < this.children.length; i++ ) {
+      for (var i = 0; !!this.children && i < this.children.length; i++ ) {
         child = this.children[i];
         if (isFunc(cbs.before) && cbs.before(child) === false) return false;
         if (this.children[i].traverseDescendants(cbs)) return false;
         if (isFunc(cbs.after) && cbs.after(child) === false) return false;
       }
+    },
+    /**
+     * Checks for recursive parents
+     */
+    _recursiveParentCheck: function(){
+      var that = this;
+      if (!this.parent) return;
+      //use parent's traverse methods so we don't get false positive on first callback
+      this.parent.traverseUpwards(function(ancestor){
+        if (ancestor === that) {
+          throw new Error("Recursive tree detected! Don't make an ancestor a descendant!!");
+        }
+      });
     },
     /**
      * Traverses all THIS and all parents, stopping if callback returns false
@@ -140,8 +154,10 @@ var Tyro = Tyro || {};
       }
       if (child.parent === this) return; //nothing to do
       child.removeFromParent(); //remove from previous parent if exists
+      this.children = this.children || []; //we create this on first use rather than in constructor - for backward compatibility with different inheritance frameworks. This keeps children off the prototype...
       this.children.push(child);
       child.parent = this; //set child's parent directly, rather than calling setParent() -> we don't want infinite recursion happening now, do we ;-)
+      this._recursiveParentCheck();
       child.parentChanged(oldParent);
     },
     /**
@@ -152,7 +168,7 @@ var Tyro = Tyro || {};
      * @returns {Integer} index, or NaN if not found
      */
     indexOfChild: function(child) {
-      for (var i = 0; i < this.children.length; i++) {
+      for (var i = 0; !!this.children && i < this.children.length; i++) {
         if (this.children[i] === child) {
           return i;
         }
@@ -171,7 +187,9 @@ var Tyro = Tyro || {};
       if (index >= 0) return this.removeChildByIndex(index);
     },
     removeChildByIndex: function(index) {
-      var child = this.children[index];
+      var child;
+      if (!(this.children instanceof Array)) return;
+      child = this.children[index];
       this.children.splice(index,1);
       child.setParent(null); //also calls parentChanged() which will be used for cleanup such as teardown, etc
       return child;

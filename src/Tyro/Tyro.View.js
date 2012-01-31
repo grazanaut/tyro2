@@ -64,7 +64,7 @@ var Tyro = Tyro || {};
       if (isNaN(index) || index < 0){ //i.e. if child not a child of this
         throw new Error("childActivating was not called with a view that is actually a child!");
       }
-      for (i = 0; i < this.children.length; i++) {
+      for (i = 0; this.children && i < this.children.length; i++) {
         item = this.children[i];
         //only teardown if it was in the same container, but is *not* the same child
         if (item !== child && item.container === child.container) {
@@ -124,10 +124,14 @@ var Tyro = Tyro || {};
     afterTeardown: function() {}, //child views should override
     cleanupDomReferences: function() {}, //child views should override (delete jQuery references to containers, elements, etc from view)
     removeFromDom: function() {}, //child views should override (remove view from Document)
-    teardownComponents: function {}, //child views should override //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance
-    _internalDoRemoveEvents: function{}, //TODO: not happy, see teardown method
+    teardownComponents: function() {}, //child views should override //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance
+    _internalDoRemoveEvents: function() {}, //TODO: not happy, see teardown method
 
     teardown: function(){
+
+      if (!this.teardownCount) this.teardownCount = 0;
+      this.teardownCount++;
+
       if (isFunc(this.onBeforeTeardown)) {
         this.onBeforeTeardown();
         console.warn("View#onBeforeTeardown is deprecated - use beforeTeardown() instead");

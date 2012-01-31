@@ -118,14 +118,20 @@ var Tyro = Tyro || {};
      * Calls teardown on all children, and then self
      */
     teardown: function() {
+
+      if (!this.isActive()) return; //don't waste time
+
       //children first
-      var i = this.children.length;
+      var i = this.children ? this.children.length : 0;
       while (i--) {
-        //TODO: should we check if active, and ignore if not, or is it better just to teardown anyway?
-        this.children[i].teardown();
-        //We no longer remove children from the tree when tearing down
-        // - They are either active and rendered, or torndown and inactive. The only
-        //   time we remove them is if they are being attached to a different parent
+
+        if (this.children[i].isActive()) {
+          this.children[i].teardown();
+          //We no longer remove children from the tree when tearing down
+          // - They are either active and rendered, or torndown and inactive. The only
+          //   time we remove them is if they are being attached to a different parent
+        }
+
       }
       this.active = false; //todo: should this be before or after doTeardown?
       //then self
@@ -139,7 +145,7 @@ var Tyro = Tyro || {};
      */
     teardownDescendantsInContainer: function(container) {
       throw new Error("Safer way to do this? - we need to make sure that only child views can replace other children?");
-      for (var i = 0; i < this.children.length; i++) {
+      for (var i = 0; this.children && i < this.children.length; i++) {
         if (this.children.container === container) {
           this.children[i].teardown();
           return;
