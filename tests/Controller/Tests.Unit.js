@@ -19,28 +19,21 @@ module("Tyro.Controller", {
 
     this.model = {model: "model"};
 
-    this.controller = new Tyro.Controller({
-      routes: {
+    this.controller = new Tyro.Controller(
+      {
         addRoute: sinon.spy(),
         setHash: sinon.spy()
       },
-      models: {
-        getModel: sinon.stub().returns(this.model)
-      },
-      pageController: {
+      { 
         render: sinon.spy(),
         addChildView: sinon.spy()
-      },
-      user: {},
-      checkSignedIn: sinon.stub(),
-      checkNotSignedIn: sinon.spy(),
-      checkAccess: sinon.spy(),
-      defaults: {} 
-    });
+      }
+    );
 
     this.controller.handler = sinon.spy();
 
     $.subscribe = sinon.spy();
+    $.publish = sinon.spy();
 
   },
 
@@ -50,6 +43,7 @@ module("Tyro.Controller", {
     delete this.controller;
 
     delete $.subscribe;
+    delete $.publish;
   }
 });
 
@@ -59,9 +53,9 @@ test("Tyro.Controller#addRoute registers a method with this.app.routes by method
   var route = "/a/route";
 
   this.controller.addRoute(route, "handler");
-  ok(this.controller.app.routes.addRoute.calledOnce);
-  equals(this.controller.app.routes.addRoute.args[0][0], route);
-  equals(typeof this.controller.app.routes.addRoute.args[0][1], "function");
+  ok(this.controller.routes.addRoute.calledOnce);
+  equals(this.controller.routes.addRoute.args[0][0], route);
+  equals(typeof this.controller.routes.addRoute.args[0][1], "function");
 
 });
 
@@ -71,9 +65,9 @@ test("Tyro.Controller#addRoute registers a method with this.app.routes", functio
   var route = "/a/route";
 
   this.controller.addRoute(route, this.controller.handler);
-  ok(this.controller.app.routes.addRoute.calledOnce);
-  equals(this.controller.app.routes.addRoute.args[0][0], route);
-  equals(typeof this.controller.app.routes.addRoute.args[0][1], "function");
+  ok(this.controller.routes.addRoute.calledOnce);
+  equals(this.controller.routes.addRoute.args[0][0], route);
+  equals(typeof this.controller.routes.addRoute.args[0][1], "function");
   
 });
 
@@ -94,92 +88,46 @@ test("Tyro.Controller#addRoute passes options through if they are specified", fu
   var route = "/a/route", options = {type: "test"};
 
   this.controller.addRoute(route, this.controller.handler, options);
-  equals(this.controller.app.routes.addRoute.args[0][2], options);
+  equals(this.controller.routes.addRoute.args[0][2], options);
   
 });
 
 
-test("Tyro.Controller#activateView calls render on the pageController", function() {
+test("Tyro.Controller#activateView calls render on the viewManager", function() {
 
   var viewIndex = {viewIndex: "viewIndex"}, 
       view = {view: "view"};
 
   this.controller.activateView(viewIndex, view);
-  ok(this.controller.app.pageController.render.calledOnce);
-  equals(this.controller.app.pageController.render.args[0][0], viewIndex);
+  ok(this.controller.viewManager.render.calledOnce);
+  equals(this.controller.viewManager.render.args[0][0], viewIndex);
   
 });
 
 
-test("Tyro.Controller#activateView calls addChildView on the pageController", function() {
+test("Tyro.Controller#activateView calls addChildView on the viewManager", function() {
 
   var viewIndex = {viewIndex: "viewIndex"}, 
       view = {view: "view"};
 
   this.controller.activateView(viewIndex, view);
-  ok(this.controller.app.pageController.addChildView.calledOnce);
-  equals(this.controller.app.pageController.addChildView.args[0][0], viewIndex);
-  equals(this.controller.app.pageController.addChildView.args[0][1], view);
+  ok(this.controller.viewManager.addChildView.calledOnce);
+  equals(this.controller.viewManager.addChildView.args[0][0], viewIndex);
+  equals(this.controller.viewManager.addChildView.args[0][1], view);
   
 });
 
 
-test("Tyro.Controller#checkAccess calls checkAccess on the app", function() {
-
-  var section = "sectionName";
-
-  this.controller.checkAccess(section);
-  ok(this.controller.app.checkAccess.calledOnce);
-  equals(this.controller.app.checkAccess.args[0][0], section);
-  
-});
 
 
-test("Tyro.Controller#checkNotSignedIn returns this.app.checkNotSignedIn", function() {
 
-  var ret = this.controller.checkNotSignedIn();
-  equals(this.controller.app.checkNotSignedIn, ret);
-  
-});
+test("Tyro.Controller#getViewIndex throws a wobbler", function() {
 
+  var controller = this.controller;
 
-test("Tyro.Controller#checkSignedIn returns this.app.checkSignedIn", function() {
-
-  var ret = this.controller.checkSignedIn();
-  equals(this.controller.app.checkSignedIn, ret);
-  
-});
-
-
-test("Tyro.Controller#getDefaults returns this.app.defaults", function() {
-
-  var ret = this.controller.getDefaults();
-  equals(this.controller.app.defaults, ret);
-  
-});
-
-
-test("Tyro.Controller#getModel calls models.getModel on the app", function() {
-
-  var model = "modelName";
-
-  ret = this.controller.getModel(model);
-  ok(this.controller.app.models.getModel.calledOnce);
-  equals(this.controller.app.models.getModel.args[0][0], model);
-  equals(this.model, ret);
-  
-});
-
-
-test("Tyro.Controller#getSection returns the section property", function() {
-
-  ret = this.controller.getSection();
-  equals(undefined, ret);
-
-  this.controller.section = "section";
-
-  ret = this.controller.getSection();
-  equals(this.controller.section, ret);
+  raises(function() {
+    controller.getViewIndex();
+  });
   
 });
 
@@ -190,24 +138,25 @@ test("Tyro.Controller#redirect calls routes.setHash on the app", function() {
   var route = "/a/route";
 
   this.controller.redirect(route);
-  ok(this.controller.app.routes.setHash.calledOnce);
-  equals(this.controller.app.routes.setHash.args[0][0], route);
+  ok(this.controller.routes.setHash.calledOnce);
+  equals(this.controller.routes.setHash.args[0][0], route);
   
 });
 
 
 
 
-test("Tyro.Controller#setActiveView calls activateView and getSection on itself", function() {
+test("Tyro.Controller#setActiveView calls activateView and getViewIndex on itself", function() {
 
   var view = {showLoader: sinon.stub()};
 
   sinon.stub(this.controller, "activateView");
-  sinon.stub(this.controller, "getSection").returns("sectionTest");
+  sinon.stub(this.controller, "getViewIndex").returns("sectionTest");
+
   this.controller.setActiveView(view);
 
   ok(this.controller.activateView.calledOnce);
-  ok(this.controller.getSection.calledOnce);
+  ok(this.controller.getViewIndex.calledOnce);
   equals(this.controller.activateView.args[0][0], "sectionTest");
   equals(this.controller.activateView.args[0][1], view);
   
@@ -217,6 +166,7 @@ test("Tyro.Controller#setActiveView calls activateView and getSection on itself"
 test("Tyro.Controller#setActiveView sets the active view", function() {
 
   var view = {showLoader: sinon.stub()};
+  sinon.stub(this.controller, "getViewIndex").returns("sectionTest");
 
   this.controller.setActiveView(view);
 
@@ -227,6 +177,7 @@ test("Tyro.Controller#setActiveView sets the active view", function() {
 test("Tyro.Controller#setActiveView calls activateView.showLoader", function() {
 
   var view = {showLoader: sinon.stub()};
+  sinon.stub(this.controller, "getViewIndex").returns("sectionTest");
 
   this.controller.setActiveView(view);
 
@@ -260,7 +211,29 @@ test("Tyro.Controller#subscribe registers a method with $.subscribe", function()
 
 });
 
+test("Tyro.Controller#publish publishes via $.publish", function() {
 
+  var channel = "/a/channel", data = ["dog", "cat"];
+
+  this.controller.publish(channel, data);
+  ok($.publish.calledOnce);
+  equals($.publish.args[0][0], channel);
+  equals($.publish.args[0][1], data);
+
+});
+
+
+
+test("Tyro.Controller#subscribe registers a method with $.subscribe", function() {
+
+  var channel = "/a/channel";
+
+  this.controller.subscribe(channel, this.controller.handler);
+  ok($.subscribe.calledOnce);
+  equals($.subscribe.args[0][0], channel);
+  equals(typeof $.subscribe.args[0][1], "function");
+
+});
 
 test("Tyro.Controller#subscribe throws an error if no function specified", function() {
 
