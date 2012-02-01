@@ -38,11 +38,16 @@ fixtures.MockView = function(container) {
 fixtures.getCopyOfMain = function(){
   var MockView = fixtures.MockView;
   var f = {};
-  f.loggedOut = new Tyro.PartialViewCollectionItem("loggedOut", null, new MockView("some container"));
-  f.loggedIn = new Tyro.PartialViewCollectionItem("loggedIn", null, new MockView("some container"));
-  f.dashboard = new Tyro.PartialViewCollectionItem("dashboard", f.loggedIn, new MockView("#main"));
-  f.setup = new Tyro.PartialViewCollectionItem("setup", f.loggedIn, new MockView("#main"));
-  f.campaigns = new Tyro.PartialViewCollectionItem("campaigns", f.setup, new MockView("some container"));
+  f.loggedOut = new Tyro.View(null, { renderOnActivate: true });
+  f.loggedOut.container = "some container";
+  f.loggedIn = new Tyro.View(null, { renderOnActivate: true });
+  f.loggedIn.container = "some container";
+  f.dashboard = new Tyro.View(f.loggedIn, { renderOnActivate: true });
+  f.dashboard.container = "#main";
+  f.setup = new Tyro.View(f.loggedIn, { renderOnActivate: true });
+  f.setup.container = "#main";
+  f.campaigns = new Tyro.View(f.setup);
+  f.campaigns.container = "some container";
   return f;
 };
 fixtures.main = fixtures.getCopyOfMain(); //backward-compatibility
@@ -66,7 +71,7 @@ function stubFn(returnValue, arrayToPopulate) {
   return fn;
 }
 
-module("new Tyro.TreeNode()");
+module("Tyro.TreeNode# new Tyro.TreeNode()");
 
 test("When instantiating, parent should be set, and children registered.", function() {
   var parent, child, child2;
@@ -92,6 +97,8 @@ module("new Tyro.AbstractView()");
 
 module("Tyro.AbstractView#teardownActiveDescendantLayouts");
 
+
+//TODO: add the following test...
 /*test("This should tear down all the active children layout views", function() {
   var head, branch1, branch2, leaf1a, leaf1b, leaf2a,
       tornDown = [];
@@ -126,127 +133,89 @@ module("Tyro.AbstractView#teardownActiveDescendantLayouts");
 
 });*/
 
-module("new Tyro.PartialViewCollectionItem()");
+//TODO: move tests not relevant to View (i.e. Abstract View or TreeNode) into the relevant files
+
+module("Tyro.new Tyro.PartialViewCollectionItem()");
 
 module("Tyro.PartialViewCollectionItem#getActiveDescendantPartials()");
 
-test("This should return the active children partial-views as an array.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	pc.items["loggedIn"].active = true;
-	pc.items["setup"].active = true;
-	pc.items["campaigns"].active = true;
+module("Tyro.View#activate()");
 
-	var result = pc.items.loggedIn.getActiveDescendantPartials();;
-  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
-  //double-linked-tree structure
-	equals(result[0] === pc.items["campaigns"], true);
-	equals(result[1] === pc.items["setup"], true);
-});
+test("Tyro.View.activate should call activate on inactive parents", function() {
+	var views = fixtures.getCopyOfMain();
+    sinon.spy(views.loggedOut, "activate");
+    sinon.spy(views.loggedIn, "activate");
+    sinon.spy(views.dashboard, "activate");
+    sinon.spy(views.setup, "activate");
+    sinon.spy(views.campaigns, "activate");
 
-test("This should return the active children partial-views as an array.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	pc.items["loggedIn"].active = true;
-	pc.items["setup"].active = true;
-	pc.items["campaigns"].active = true;
+    views.campaigns.activate();
 
-  var result = pc.items.setup.getActiveDescendantPartials();;
-  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
-  //double-linked-tree structure
-	equals(result[0] === pc.items["campaigns"], true);
-
-	var result2 = pc.items.campaigns.getActiveDescendantPartials();
-	equals(result2.length, 0);
+    ok(views.setup.activate.calledOnce);
+    ok(views.loggedIn.activate.calledOnce);
+    ok(!views.dashboard.activate.called);
+    ok(!views.loggedOut.activate.called);
 
 });
 
-module("Tyro.PartialViewCollectionItem#getInactiveParents()");
+test("Tyro.View.activate should cause all 'renderOnActivate' views to be 'active'", function() {
+	var views = fixtures.getCopyOfMain();
 
-test("Every instance of Tyro.PartialViewCollectionItem should have a getInactiveParents() method.", function() {
-  var item = new Tyro.PartialViewCollectionItem("some id", null, new fixtures.MockView("some container"));
-	equals(typeof item.getInactiveParents, "function");
-});
+    views.campaigns.activate();
 
-test("When there are partial-views that are inactive and parents it should return them in an array.", function() {
-	var pc = new Tyro.PageController();
-
-	pc.items = fixtures.getCopyOfMain();
-	var result1 = pc.items.loggedOut.getInactiveParents();
-	equals(result1.length, 1);
-	equals(result1[0], pc.items["loggedOut"]);
-
-	//1
-	pc.items = fixtures.getCopyOfMain();
-	var result2 = pc.items.dashboard.getInactiveParents();
-	equals(result2.length, 2);
-  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
-  //double-linked-tree structure
-	equals(result2[0] === pc.items["loggedIn"], true);
-	equals(result2[1] === pc.items["dashboard"], true);
-
-	//2
-	pc.items = fixtures.getCopyOfMain();
-	var result3 = pc.items.campaigns.getInactiveParents();
-	equals(result3.length, 3);
-  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
-  //double-linked-tree structure
-	equals(result3[0] === pc.items["loggedIn"], true);
-	equals(result3[1] === pc.items["setup"], true);
-	equals(result3[2] === pc.items["campaigns"], true);
+    ok(views.setup.isActive());
+    ok(views.loggedIn.isActive());
+    ok(!views.dashboard.isActive());
+    ok(!views.loggedOut.isActive());
 
 });
 
-module("Tyro.PartialViewCollectionItem#teardownViews()");
-
-test("Every instance of Tyro.PartialViewCollectionItem should have a teardownPartialView() method", function() {
-  var item = new Tyro.PartialViewCollectionItem("some id", null, new fixtures.MockView("some container"));
-	equals(typeof item.teardownViews, "function");
+test("Tyro.View.activate should call teardown on views which will not be used", function(){
+	ok(false); //test not yet implemented
 });
 
-test("When tearing down a partial-view it should call teardown on it's childViews and then it's own view.", function() {
-	// setup
-	var pc = new Tyro.PageController();
-	pc.items["setup"] = new Tyro.PartialViewCollectionItem("setup", null, new fixtures.MockView("some container"));
-	pc.items["setup"].active = true;
-	var func = stubFn();
-	pc.items["setup"].childViews = [{teardown: func}];
-	pc.items["setup"].view.teardown = stubFn();
-	// exercise
-	pc.items["setup"].teardownViews();
+module("Tyro.View#teardown()");
 
-	// verify
-	ok(func.called);
-	ok(pc.items["setup"].view.teardown.called);
-	equals(pc.items["setup"].active, false);
-	equals(pc.items["setup"].childViews.length, 0);
+test("When tearing down an inactive view it should not call teardown on its descendants", function() {
+	var views = fixtures.getCopyOfMain();
+    sinon.spy(views.loggedOut, "teardown");
+    sinon.spy(views.loggedIn, "teardown");
+    sinon.spy(views.dashboard, "teardown");
+    sinon.spy(views.setup, "teardown");
+    sinon.spy(views.campaigns, "teardown");
 
+    views.loggedIn.teardown();
+
+    ok(!views.setup.teardown.called);
+    ok(!views.campaigns.teardown.called);
+    ok(!views.dashboard.teardown.called);
+    ok(!views.loggedOut.teardown.called);
 });
 
+test("When tearing down an view it should call teardown on it's descendants", function() {
+	var views = fixtures.getCopyOfMain();
+    sinon.spy(views.loggedOut, "teardown");
+    sinon.spy(views.loggedIn, "teardown");
+    sinon.spy(views.dashboard, "teardown");
+    sinon.spy(views.setup, "teardown");
+    sinon.spy(views.campaigns, "teardown");
 
+    views.campaigns.activate();
+    views.loggedIn.teardown();
 
-module("new Tyro.PageController()");
-
-test("Tyro.PageController is a constructor function", function() {
-  equals(typeof Tyro.PageController, "function", "Tyro.PageController is of type function.");
+    ok(views.setup.teardown.called);
+    ok(views.campaigns.teardown.called);
+    ok(!views.dashboard.teardown.called);
+    ok(!views.loggedOut.teardown.called);
 });
 
-test("Every instance of Tyro.PageController should have a partialViews object property.", function() {
-  var pc = new Tyro.PageController();
-	equals(typeof pc.items, "object");
-});
+module("Tyro.View#addChild()");
 
-module("Tyro.PageController#addItem()");
 
-test("Every instance of Tyro.PageController should have an addItem() method.", function() {
-	var pc = new Tyro.PageController();
-	equals(typeof pc.addItem, "function");
-});
-
-test("When adding a partial-view with no arguments an error is thrown.", function() {
-	var pc = new Tyro.PageController();
+test("When adding a view with incorrect arguments an error is thrown.", function() {
+	var view = new Tyro.View(null);
 	raises(function() {
-		pc.addItem();
+		view.addChild({});
 	}, "raised");
 });
 

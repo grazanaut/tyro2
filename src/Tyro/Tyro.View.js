@@ -24,9 +24,9 @@ var Tyro = Tyro || {};
       };
 
   var View = Tyro.View = klass("View", AbstractView, {
-    constructor: function(parent) {
+    constructor: function(parent, options) {
       this.inherited(parent);
-      this._renderOnActivate = false; //default - ONLY set this to true IFF rendering is not asyncronous - i.e. we know that we dont need to load template, data, etc from ajax
+      this._renderOnActivate = !!(options && options.renderOnActivate); //ONLY set this to true IFF rendering is not asyncronous - i.e. we know that we dont need to load template, data, etc from ajax
       this._activating = false;
     },
     _respondToActivationCallbacks: function() {
