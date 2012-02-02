@@ -5,16 +5,20 @@ var Tyro = Tyro || {};
 
 (function() {
 
+  //  Import utility methods and namespaces into the local scope
+
   Tyro.Controller = function(config) {
 
-    this.routes      = config.routes;
-    this.viewManager = config.viewManager;
+    if(config) {
+
+      this.routes      = config.routes;
+      this.viewManager = config.viewManager;
+
+    }
 
   };
 
-
   Tyro.Controller.prototype = {
-    
 
     //  public
 
@@ -108,6 +112,9 @@ var Tyro = Tyro || {};
       @description  sets the active view and shows the loading indicator
       @param        {object}    view
       @param        {object}    [options]
+
+      @todo         remove call to this.setParent and uncomment the following 
+                    two lines when the viewManager is ready
     */
     setActiveView: function(view, options) {
 
@@ -116,14 +123,29 @@ var Tyro = Tyro || {};
       this.activeView = view;
 
       viewIndex = this.getViewIndex(options || {});
-      parent = this.viewManager[viewIndex];
 
-      view.setParent(parent);
+      this.setParentView(view, viewIndex);
+      //parent = this.viewManager.getParentView(viewIndex);
+      //view.setParent(parent);
+
       view.activate();
       view.showLoader();
 
     },
 
+
+    /*
+      @description  sets the active view and shows the loading indicator
+      @param        {object}    view
+      @param        {object}    [options]
+      @todo         deprecate this badboy.
+    */
+    setParentView: function(view, viewIndex) {
+
+      this.app.pageController.render(viewIndex);
+      this.app.pageController.addChildView(viewIndex, view);
+
+    },
 
 
 

@@ -19,16 +19,21 @@ module("Tyro.Controller", {
 
     this.model = {model: "model"};
 
-    this.controller = new Tyro.Controller(
-      {
+    this.controller = new Tyro.Controller({
+      routes: {
         addRoute: sinon.spy(),
         setHash: sinon.spy()
       },
-      { 
-        render: sinon.spy(),
-        addChildView: sinon.spy()
+      app: { 
+        pageController: {
+          render: sinon.spy(),
+          addChildView: sinon.spy()
+        }
+      },
+      viewManager: {
+        getParentView: sinon.spy()
       }
-    );
+    });
 
     this.controller.handler = sinon.spy();
 
@@ -93,32 +98,6 @@ test("Tyro.Controller#addRoute passes options through if they are specified", fu
 });
 
 
-test("Tyro.Controller#activateView calls render on the viewManager", function() {
-
-  var viewIndex = {viewIndex: "viewIndex"}, 
-      view = {view: "view"};
-
-  this.controller.activateView(viewIndex, view);
-  ok(this.controller.viewManager.render.calledOnce);
-  equals(this.controller.viewManager.render.args[0][0], viewIndex);
-  
-});
-
-
-test("Tyro.Controller#activateView calls addChildView on the viewManager", function() {
-
-  var viewIndex = {viewIndex: "viewIndex"}, 
-      view = {view: "view"};
-
-  this.controller.activateView(viewIndex, view);
-  ok(this.controller.viewManager.addChildView.calledOnce);
-  equals(this.controller.viewManager.addChildView.args[0][0], viewIndex);
-  equals(this.controller.viewManager.addChildView.args[0][1], view);
-  
-});
-
-
-
 
 
 test("Tyro.Controller#getViewIndex throws a wobbler", function() {
@@ -148,24 +127,32 @@ test("Tyro.Controller#redirect calls routes.setHash on the app", function() {
 
 test("Tyro.Controller#setActiveView calls activateView and getViewIndex on itself", function() {
 
-  var view = {showLoader: sinon.stub()};
+  var view = {
+    activate: sinon.stub(),
+    showLoader: sinon.stub()
+  };
 
-  sinon.stub(this.controller, "activateView");
+  sinon.stub(this.controller, "setParentView");
   sinon.stub(this.controller, "getViewIndex").returns("sectionTest");
 
   this.controller.setActiveView(view);
 
-  ok(this.controller.activateView.calledOnce);
+  ok(this.controller.setParentView.calledOnce);
   ok(this.controller.getViewIndex.calledOnce);
-  equals(this.controller.activateView.args[0][0], "sectionTest");
-  equals(this.controller.activateView.args[0][1], view);
+  equals(this.controller.setParentView.args[0][0], view);
+  equals(this.controller.setParentView.args[0][1], "sectionTest");
   
 });
 
 
 test("Tyro.Controller#setActiveView sets the active view", function() {
 
-  var view = {showLoader: sinon.stub()};
+  var view = {
+    activate: sinon.stub(),
+    showLoader: sinon.stub()
+  };
+
+  sinon.stub(this.controller, "setParentView");
   sinon.stub(this.controller, "getViewIndex").returns("sectionTest");
 
   this.controller.setActiveView(view);
@@ -174,9 +161,33 @@ test("Tyro.Controller#setActiveView sets the active view", function() {
   
 });
 
-test("Tyro.Controller#setActiveView calls activateView.showLoader", function() {
 
-  var view = {showLoader: sinon.stub()};
+test("Tyro.Controller#setActiveView calls view.activate", function() {
+
+  var view = {
+    activate: sinon.stub(),
+    showLoader: sinon.stub()
+  };
+
+  sinon.stub(this.controller, "setParentView");
+  sinon.stub(this.controller, "getViewIndex").returns("sectionTest");
+
+  this.controller.setActiveView(view);
+
+  ok(view.activate.calledOnce);
+  
+});
+
+
+
+test("Tyro.Controller#setActiveView calls view.showLoader", function() {
+
+  var view = {
+    activate: sinon.stub(),
+    showLoader: sinon.stub()
+  };
+
+  sinon.stub(this.controller, "setParentView");
   sinon.stub(this.controller, "getViewIndex").returns("sectionTest");
 
   this.controller.setActiveView(view);
