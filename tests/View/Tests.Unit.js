@@ -57,25 +57,6 @@ fixtures.getCopyOfMain = function(){
 };
 fixtures.main = fixtures.getCopyOfMain(); //backward-compatibility
 
-
-function stubFn(returnValue, arrayToPopulate) {
-  var fn = function () {
-    fn.called = true;
-    fn.args = arguments;
-    fn.thisValue = this;
-    fn.callCount++;
-		
-		if(arrayToPopulate) arrayToPopulate.push(fn);
-		
-    return returnValue;
-  };
-
-  fn.called = false;
-  fn.callCount = 0;
-
-  return fn;
-}
-
 module("Tyro.TreeNode# new Tyro.TreeNode()");
 
 test("When instantiating, parent should be set, and children registered.", function() {
@@ -314,100 +295,48 @@ test("TODO: should teardown unrelated views only once when a view is rendered", 
 });
 
 
-module("Tyro.TreeNode#render()");
+module("Tyro.View#render()");
+
+test("It should not attempt to teardown non attached active partial-views (TODO: not sure what this means - was an old test from when pageController existed and has been ported to new views)", function() {
+	var vm = new Tyro.ViewManager(),
+	    views = fixtures.getCopyOfMain();
+	
+	vm.addTopLevelView(views.loggedIn);
+	vm.addTopLevelView(views.loggedOut);
+	views.setup.activate();
+
+	sinon.spy(views.loggedOut, "teardown");
+
+    
+    views.setup.render();
+	
+	ok(!views.loggedOut.teardown.called)
+});
+
+test("It should not attempt to re-render already active parents", function() {
+	// setup
+	var vm = new Tyro.ViewManager(),
+	    views = fixtures.getCopyOfMain();
+	
+	views.setup.activate();
+	sinon.spy(views.loggedOut, "render"); //*after* initial activation
+	sinon.spy(views.setup, "render"); //*after* initial activation
+		
+	// exercise
+	views.campaigns.render();
+	
+	// verify
+	ok(!views.loggedOut.called);
+	ok(!views.setup.called);
+});
 
 test("TODO: test that childActivating() is actually called at the right time(s)/place(s)", function() {ok(false);});
 
-
-test("When adding a view that has the same container as a view already in the partial-views childViews array, teardown and remove it first.",  function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var view1 = { teardown: stubFn(), container: "container1" };
-	var view2 = { teardown: stubFn(), container: "container2" };
-	var view3 = { teardown: stubFn(), container: "container1" };
-	pc.items["setup"].childViews = [view1, view2];
-
-	pc.addChildView("setup", view3);
-
-	ok(view1.teardown.called);
-	ok(!view2.teardown.called);
-	
-	equals(pc.items["setup"].childViews.length, 2);
-	
-})
-
-module("Tyro.PageController#renderItems()");
-
-test("Every instance of Tyro.PageController should have a renderItems() method.", function() {
-	var pc = new Tyro.PageController();	
-	equals(typeof pc.renderItems, "function");
-});
-
-test("When invoking this method, it should render each of the partial-views view and set to active", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var pvRender1 = stubFn();
-	var pvRender2 = stubFn();
-	pc.items["loggedIn"].view = { render: pvRender1 };
-	pc.items["setup"].view = {	render: pvRender2 };
-
-
-	pc.renderItems([pc.items["loggedIn"], pc.items["setup"]]);
-
-	ok(pvRender1.called);
-	ok(pc.items["loggedIn"].active);
-	ok(pvRender2.called);
-	ok(pc.items["setup"].active);
-});
-
-module("Tyro.PageController#render() - general");
-
-test("Every instance of Tyro.PageController should have a render() method.", function() {
-	var pc = new Tyro.PageController();	
-	equals(typeof pc.render, "function");
-});
-
-test("When rendering a partial-view with no argument, an error is thrown", function() {
-	var pc = new Tyro.PageController();
-	raises(function() {
-		pc.render();
-	}, "raised");
-
-});
+//TODO: move any irrelevant tests to the bottom - they may be required to be added to backoffice instead
 
 module("Tyro.PageController#render() - partial-view is already active");
 
-test("It should not attempt to teardown non attached active partial-views", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();	
-	var loggedOutTeardown = stubFn();
-	pc.items["loggedOut"].view = {teardown: loggedOutTeardown}
-	pc.items["loggedIn"].active = true;
-	pc.items["setup"].active = true;
-	
-	pc.render("setup");
-	
-	ok(!loggedOutTeardown.called)
-});
 
-test("It should not attempt to re-render the parents.", function() {
-	// setup
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var pvRender1 = stubFn();
-	var pvRender2 = stubFn();
-	pc.items["loggedIn"].active = true;
-	pc.items["loggedIn"].view = {render: pvRender1};
-	pc.items["setup"].active = true;
-	pc.items["setup"].view = {render: pvRender2};
-	
-	// exercise
-	pc.render("setup");
-	
-	// verify
-	ok(!pvRender1.called);
-	ok(!pvRender2.called);
-});
 
 test("It should teardown the active-children partial-views.", function() {
 	// setup
@@ -588,3 +517,21 @@ test("When rendering a non-attached partial-view from 3 levels deep, the correct
   
 });
 
+module("TESTS THAT NEED TO BE MOVED INTO BackOffice and out of Tyro");
+
+test("Tyro.PageController#addChildView() When adding a view that has the same container as a view already in the partial-views childViews array, teardown and remove it first.",  function() {
+	var pc = new Tyro.PageController();
+	pc.items = fixtures.getCopyOfMain();
+	var view1 = { teardown: stubFn(), container: "container1" };
+	var view2 = { teardown: stubFn(), container: "container2" };
+	var view3 = { teardown: stubFn(), container: "container1" };
+	pc.items["setup"].childViews = [view1, view2];
+
+	pc.addChildView("setup", view3);
+
+	ok(view1.teardown.called);
+	ok(!view2.teardown.called);
+	
+	equals(pc.items["setup"].childViews.length, 2);
+	
+})
