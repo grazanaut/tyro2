@@ -173,7 +173,7 @@ test("TODO: Tyro.View.activate should not reactivate/render active parent views"
 });
 
 
-test("TODO: Tyro.View.activate should call teardown on views which will not be used", function(){
+test("TODO: Tyro.View.activate should call teardown on views which will not be used (in the right order)", function(){
 	ok(false); //test not yet implemented
 });
 
@@ -330,192 +330,48 @@ test("It should not attempt to re-render already active parents", function() {
 	ok(!views.setup.called);
 });
 
+test("When trying to render a view into a parent that has a child in the same container, it should teardown that child.", function() {
+	/* GIVEN */
+	//dashboard and setup have the same container
+	var views = fixtures.getCopyOfMain();
+    views.campaigns.activate(); //will render setup
+    sinon.spy(views.setup, "teardown");
+
+    /* WHEN */
+
+    views.dashboard.activate();
+
+    /* THEN */
+
+    ok(views.setup.teardown.calledOnce);
+
+});
+
+
+test("When rendering a layout-view that is on the same level as one that is currently showing, it should be torn down", function() {
+	/* GIVEN */
+	//dashboard and setup have the same container
+	var vm = new Tyro.ViewManager(),
+	    views = fixtures.getCopyOfMain();
+	vm.addTopLevelView(views.loggedIn);
+	vm.addTopLevelView(views.loggedOut);
+    views.loggedOut.activate();
+    sinon.spy(views.loggedOut, "teardown");
+
+    /* WHEN */
+
+    views.loggedIn.activate();
+
+    /* THEN */
+
+    ok(views.loggedOut.teardown.called);
+
+});
+
 test("TODO: test that childActivating() is actually called at the right time(s)/place(s)", function() {ok(false);});
 
 //TODO: move any irrelevant tests to the bottom - they may be required to be added to backoffice instead
 
-module("Tyro.PageController#render() - partial-view is already active");
-
-
-
-test("It should teardown the active-children partial-views.", function() {
-	// setup
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var pvTeardown = stubFn();
-	pc.items["loggedIn"].active = true;
-	pc.items["setup"].active = true;
-	pc.items["campaigns"].active = true;
-	pc.items["campaigns"].view = {teardown: pvTeardown};
-	
-	// exercise
-	pc.render("setup");
-	
-	// verify
-	ok(pvTeardown.called);
-});
-
-module("Tyro.PageController#render() - partial-view is in-active");
-
-test("Its parent partial-views should be rendered.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	
-	var order = [];
-	
-	pc.items["loggedIn"].view.render = stubFn(null, order);
-	pc.items["setup"].view.render = stubFn(null, order);
-
-	pc.render("setup");
-	
-	
-	equals(order[0], pc.items["loggedIn"].view.render);
-	equals(order[1], pc.items["setup"].view.render);
-	
-	ok(pc.items["loggedIn"].view.render.called);
-	ok(pc.items["setup"].view.render.called);
-
-});
-
-test("It should teardown non attached partial views.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var order = [];
-	var loginView = { teardown: stubFn(null, order) };
-	var loggedOutPartialView = { teardown: stubFn(null, order) };
-	pc.items["loggedOut"].view = loggedOutPartialView;
-	pc.items["loggedOut"].active = true;
-	pc.items["loggedOut"].childViews = [loginView];
-	
-	// exercise
-	pc.render("setup");
-	
-	// verify
-	equals(order[0], loginView.teardown);
-	equals(order[1], loggedOutPartialView.teardown);
-	ok(loginView.teardown.called);
-	ok(loggedOutPartialView.teardown.called);
-
-});
-
-test("It should teardown non attached partial views (in order).", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();	
-	var order = [];	
-	var dashboardHomeView = { teardown: stubFn(null, order) };
-	var loggedInPartialView = { teardown: stubFn(null, order) };
-	var dashboardPartialView = { teardown: stubFn(null, order) };
-	pc.items["loggedIn"].view = loggedInPartialView;
-	pc.items["loggedIn"].active = true;
-	pc.items["dashboard"].view = dashboardPartialView;
-	pc.items["dashboard"].active = true;
-	pc.items["dashboard"].childViews = [dashboardHomeView];
-	
-	// exercise
-	pc.render("loggedOut");
-
-	// verify
-	equals(order[0], dashboardHomeView.teardown);
-	equals(order[1], dashboardPartialView.teardown);
-	equals(order[2], loggedInPartialView.teardown);
-	ok(dashboardHomeView.teardown.called);
-	ok(dashboardPartialView.teardown.called);
-	ok(loggedInPartialView.teardown.called);
-});
-
-test("When trying to render a partial-view into a parent-partial-view that has a child-view in the same container, it should teardown it's child-view first.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var order = [];
-	var setupHomeView = { teardown: stubFn(null, order), container: "adam" }
-	pc.items["loggedIn"].active = true;
-	pc.items["setup"].active = true;
-	pc.items["setup"].childViews = [setupHomeView];
-	pc.items["campaigns"].view.container = "adam";
-	var campaignsRender = stubFn(null, order);
-	pc.items["campaigns"].view.render = campaignsRender;
-	
-	// exercise
-	pc.render("campaigns");
-	
-	equals(order[0], setupHomeView.teardown);
-	equals(order[1], campaignsRender);
-	ok(setupHomeView.teardown.called);
-	equals(pc.items["setup"].childViews.length, 0);
-
-});
-
-test("When rendering a partial-view that is on the same level as one that is currently showing, it should be torn down", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var order = [];
-	pc.items["loggedIn"].active = true;
-	pc.items["setup"].active = true;
-	
-	var setupTeardown = stubFn(null, order);
-	var dashboardRender = stubFn(null, order);
-	pc.items["setup"].view = {
-		container: "#main",
-		teardown: setupTeardown
-	}
-	pc.items["dashboard"].view = {
-		container: "#main",
-		render: dashboardRender
-	}
-
-	pc.render("dashboard");
-	
-	equals(order[0], setupTeardown);
-	equals(order[1], dashboardRender);
-	ok(setupTeardown.called);
-	
-});
-
-test("etc", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	pc.items["loggedIn"].active = true;
-	pc.items["dashboard"].active = true;	
-	var order = [];
-	var teardownDashboard = stubFn(null, order);
-	var renderDashboard = stubFn(null, order);
-	var renderSetup = stubFn(null, order);
-	var renderCampaigns = stubFn(null, order);
-	pc.items["setup"].view = {	render: renderSetup	};
-	pc.items["campaigns"].view = {	render: renderCampaigns	};
-	pc.items["dashboard"].view = {	teardown: teardownDashboard, render: renderDashboard };
-	pc.render("campaigns");
-	
-	equals(order[0], teardownDashboard);
-	equals(order[1], renderSetup);
-	equals(order[2], renderCampaigns)
-	ok(!renderDashboard.called);
-	ok(teardownDashboard.called);	
-});
-
-module("Tyro.PageController#render() - moving from 3 levels deep to a non-attached ")
-
-test("When rendering a non-attached partial-view from 3 levels deep, the correct partial-views should be torn down in order", function() {
-  var pc = new Tyro.PageController();
-  pc.items = fixtures.getCopyOfMain();
-  pc.items["loggedIn"].active = true;
-  pc.items["setup"].active = true;
-  pc.items["campaigns"].active = true;
-  var order = [];
-  var teardownLoggedIn = stubFn(null, order);
-  var teardownSetup = stubFn(null, order);
-  var teardownCampaigns = stubFn(null, order);
-  pc.items["loggedIn"].view = { teardown: teardownLoggedIn };
-  pc.items["setup"].view = { teardown: teardownSetup };
-  pc.items["campaigns"].view = { teardown: teardownCampaigns };
-  
-  pc.render("loggedOut");
-  
-  equals(order[0], teardownCampaigns);
-  equals(order[1], teardownSetup);
-  equals(order[2], teardownLoggedIn);
-  
-});
 
 module("TESTS THAT NEED TO BE MOVED INTO BackOffice and out of Tyro");
 
