@@ -39,15 +39,20 @@ fixtures.getCopyOfMain = function(){
   var MockView = fixtures.MockView;
   var f = {};
   f.loggedOut = new Tyro.View(null, { renderOnActivate: true });
-  f.loggedOut.container = "some container";
+  f.loggedOut.container = "some container for logged out";
   f.loggedIn = new Tyro.View(null, { renderOnActivate: true });
-  f.loggedIn.container = "some container";
+  f.loggedIn.container = "some container for logged in";
   f.dashboard = new Tyro.View(f.loggedIn, { renderOnActivate: true });
   f.dashboard.container = "#main";
   f.setup = new Tyro.View(f.loggedIn, { renderOnActivate: true });
   f.setup.container = "#main";
   f.campaigns = new Tyro.View(f.setup);
   f.campaigns.container = "some container";
+  for (var p in f) {
+  	if (f.hasOwnProperty(p)) {
+  	  f[p]._____testFixtureName = p; //assist with inspecting whilst testing  		
+  	}
+  }
   return f;
 };
 fixtures.main = fixtures.getCopyOfMain(); //backward-compatibility
@@ -271,135 +276,48 @@ test("When adding a valid view it should be added to it's parents children.", fu
 	ok(parent.children[0] === child);	
 });
 
-module("Tyro.ViewManager#should teardown unrelated views when a view is rendered");
+module("Tyro.ViewManager");
 
-test("When no partial-view is specificed, an empty array should be returned.", function() {
-	var pc = new Tyro.PageController();	
-	pc.items = fixtures.getCopyOfMain();
-	var result = pc.getActiveItemsUnrelatedTo();
-	ok($.isArray(result));
+test("should teardown unrelated active views when a view is rendered", function() {
+	var vm = new Tyro.ViewManager(),
+	    views = fixtures.getCopyOfMain();
+
+    sinon.spy(views.loggedIn, "teardown");
+    sinon.spy(views.loggedOut, "teardown");
+
+	vm.addTopLevelView(views.loggedIn);
+	vm.addTopLevelView(views.loggedOut);
+
+    views.loggedIn.activate(); //part of the test SETUP - activate another view, before testing teardown by activating testing view
+
+    //the actual test
+	views.loggedOut.activate();
+
+	ok(views.loggedIn.teardown.called);
+	ok(!views.loggedOut.teardown.called); //also check we don't teardown view we're rendering
 });
 
-test("When one non attached partial-view is active, that partial-view should be returned in an array.", function() {
-	var pc = new Tyro.PageController();	
-  pc.items = fixtures.getCopyOfMain();
-	pc.items["loggedOut"].active = true;
-	var result = pc.getActiveItemsUnrelatedTo(pc.items.setup);
-	equals(result[0], pc.items["loggedOut"]);
+test("TODO: should teardown unrelated views only once when a view is rendered", function() {
+	var vm = new Tyro.ViewManager(),
+	    views = fixtures.getCopyOfMain();
+
+    sinon.spy(views.loggedIn, "teardown");
+    sinon.spy(views.loggedOut, "teardown");
+
+	vm.addTopLevelView(views.loggedIn);
+	vm.addTopLevelView(views.loggedOut);
+
+	views.loggedOut.activate();
+
+	ok(views.loggedIn.teardown.calledOnce);
+	ok(!views.loggedOut.teardown.called);
 });
 
-test("When there are multiple non attached active partial-views, they should be returned in an array.", function() {
-	var pc = new Tyro.PageController();	
-  pc.items = fixtures.getCopyOfMain();
-	pc.items["loggedIn"].active = true;
-	pc.items["dashboard"].active = true;
-	var result = pc.getActiveItemsUnrelatedTo(pc.items.loggedOut);
-	equals(result.length, 2);
-  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
-  //double-linked-tree structure
-	equals(result[0] === pc.items["dashboard"], true);
-	equals(result[1] === pc.items["loggedIn"], true);
-});
 
-test("When there are no non attached active partial-views, it should return an empty array.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	var setupHomeView = { teardown: stubFn() }
-	pc.items["loggedIn"].active = true;
-	pc.items["setup"].active = true;
-	pc.items["setup"].childViews[setupHomeView];
-	
-	var result = pc.getActiveItemsUnrelatedTo(pc.items.campaigns);
-	
-	equals(result.length, 0);
+module("Tyro.TreeNode#render()");
 
-});
+test("TODO: test that childActivating() is actually called at the right time(s)/place(s)", function() {ok(false);});
 
-test("When getting non attached active partial-views it should return them in child-to-parent order.", function() {
-  var pc = new Tyro.PageController();
-  pc.items = fixtures.getCopyOfMain();
-  pc.items["loggedIn"].active = true;
-  pc.items["setup"].active = true;
-  pc.items["campaigns"].active = true;
-  
-  var result = pc.getActiveItemsUnrelatedTo(pc.items.loggedOut);
-  
-  //need to use === and true here, as equals() does deep check and ends up in infinite recursion due to
-  //double-linked-tree structure
-  equals(result[0] === pc.items["campaigns"], true);
-  equals(result[1] === pc.items["setup"], true);
-  equals(result[2] === pc.items["loggedIn"], true);
-});
-
-module("Tyro.PageController#teardownItems()");
-
-test("Every instance of Tyro.PageController should have a teardownItems() method.", function() {
-	var pc = new Tyro.PageController();	
-	equals(typeof pc.teardownItems, "function");
-});
-
-test("When tearing down many partial-views, it should delegate to the teardownPartialView() method.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	pc.items["setup"].active = true;
-  pc.items["setup"].teardownViews = stubFn();
-	pc.items["loggedIn"].active = true;
-  pc.items["loggedIn"].teardownViews = stubFn();
-	var arr = [pc.items["setup"], pc.items["loggedIn"]]
-	
-	pc.teardownItems(arr);
-	
-	equals(pc.items["setup"].teardownViews.callCount, 1);
-  equals(pc.items["loggedIn"].teardownViews.callCount, 1);
-});
-
-module("Tyro.PageController#teardownChildView()");
-
-test("todo", function(){});
-
-module("addChildView()");
-
-test("Every instance of Tyro.PageController should have an addChildView() method.", function() {
-	var pc = new Tyro.PageController();	
-	equals(typeof pc.addChildView, "function");
-});
-
-test("When adding a child view without specifying a view to add, it should throw an error.", function() {
-  var pc = new Tyro.PageController();
-  raises(function() {
-		pc.addChildView("setup");
-	}, "raised");
-});
-
-test("When adding a view without a container it should throw an error.", function() {
-  var pc = new Tyro.PageController();
-  raises(function() {
-		pc.addChildView("setup", {});
-	}, "raised");
-});
-
-test("When adding a view without a teardown method it should throw an error.", function() {
-  var pc = new Tyro.PageController();
-  raises(function() {
-		pc.addChildView("setup", {container: "container"});
-	}, "raised");
-});
-
-test("When adding a view to a partial-view it should be added to it's childViews array.", function() {
-	var pc = new Tyro.PageController();
-	pc.items = fixtures.getCopyOfMain();
-	
-	var view = {
-		render: stubFn(),
-		teardown: stubFn(),
-		container: "woop"
-	}
-	pc.addChildView("setup", view);
-	
-	equals(pc.items["setup"].childViews.length, 1);
-	equals(pc.items["setup"].childViews[0], view);
-	
-});
 
 test("When adding a view that has the same container as a view already in the partial-views childViews array, teardown and remove it first.",  function() {
 	var pc = new Tyro.PageController();

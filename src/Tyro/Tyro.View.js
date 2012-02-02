@@ -72,15 +72,21 @@ var Tyro = Tyro || {};
       if (isNaN(index) || index < 0){ //i.e. if child not a child of this
         throw new Error("childActivating was not called with a view that is actually a child!");
       }
+
+      this._teardownOtherChildrenWithSameContainer(child);
+
+      this.fire("Rendered"); //lets observing children know we are ready
+    },
+    _teardownOtherChildrenWithSameContainer: function(child) {
+      var i, item;
       for (i = 0; this.children && i < this.children.length; i++) {
         item = this.children[i];
         //only teardown if it was in the same container, but is *not* the same child
-        if (item !== child && item.container === child.container) {
-          this.children[i].teardown();
+        if (item !== child && item.container === child.container && item.isActive()) {
+          item.teardown();
         }
       }
 
-      this.fire("Rendered"); //lets observing children know we are ready
     },
     /**
      * activates and renders parents if need be (also tears down "this" view)
@@ -174,6 +180,10 @@ var Tyro = Tyro || {};
     },
     render: function(){
       this.fire("Rendering");
+      if (!!this.parent) {
+        //TODO: not entirely happy with this - calling some mutator of parent. Maybe we should have a "childRendering" method instead?
+        this.parent._teardownOtherChildrenWithSameContainer(this);
+      }
       this.inherited();
     }
   });

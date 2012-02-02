@@ -31,7 +31,7 @@ var Tyro = Tyro || {};
       this.views = this.views || [];
     },
     addTopLevelView: function(view) {
-      if (view.parent) {
+      if (!!view.parent) {
         throw new Error("Only top-level views can be added to view manager");
       }
       this._ensureViews();
@@ -56,8 +56,8 @@ var Tyro = Tyro || {};
     },
     _teardownViewsOtherThan: function(view) {
       for (var i = 0; i < this.views.length; i++) {
-        if (view !== this.views[i]) {
-          view.teardown();            
+        if (view !== this.views[i] && this.views[i].isActive()) {
+          this.views[i].teardown();            
         }
       }
     }
