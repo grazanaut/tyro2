@@ -13,7 +13,7 @@ function stubFn(returnValue) {
   return fn;
 }
 
-module("new Tyro.Routes()");
+module("Tyro.Routes# new Tyro.Routes()");
 
 test("Tyro.Routes is a constructor function", function() {
   equals(typeof Tyro.Routes, "function", "Tyro.Routes is of type function.");
@@ -34,7 +34,7 @@ test("A new Tyro.Routes application should have a default pageNotFoundUrl option
 	equals(typeof t.options.pageNotFoundUrl, "string", "The default pageNotFoundUrl option is a string.");
 });
 
-module("addController()");
+module("Tyro.Routes# addController()");
 
 test("Adding a controller should add it to the controllers array", function() {
 	var t = new Tyro.Routes();
@@ -43,7 +43,7 @@ test("Adding a controller should add it to the controllers array", function() {
 	equals(t.controllers[0], func, "The array contains the function that was added.");
 });
 
-module("addRoute()", {
+module("Tyro.Routes# addRoute()", {
   setup: function() {
     this.t = new Tyro.Routes();
   },
@@ -100,7 +100,7 @@ test("Adding two callbacks to the same route url should only create one route it
   equals(t.routes[url].callbacks.length, 2);
 });
 
-module("getHash()");
+module("Tyro.Routes# getHash()");
 
 test("Getting the hash, should get the hash value from the document location without the # character", function() {
   var t = new Tyro.Routes();
@@ -108,7 +108,7 @@ test("Getting the hash, should get the hash value from the document location wit
   equals("woop", t.getHash(), "The value returned should be woop.");
 });
 
-module("setHash()");
+module("Tyro.Routes# setHash()");
 
 test("Setting hash, should change the hash value in document.location", function() {
   var t = new Tyro.Routes();
@@ -116,7 +116,7 @@ test("Setting hash, should change the hash value in document.location", function
   equals(document.location.hash.substr(1), "woop2", "The document.location.hash value (without the #) is woop2.")
 });
 
-module("_routeToRegExp()");
+module("Tyro.Routes# _routeToRegExp()");
 
 test("Converting a route to a regex, should return a correctly formed regex.", function() {
   
@@ -127,7 +127,7 @@ test("Converting a route to a regex, should return a correctly formed regex.", f
   //equals(t.routeToRegExp("/woop/:uuid/twooop").toString(), "/^/woop/([^/]+)/twooop/?$/", "The regex returned was correctly replaced.");
 });
 
-module("getParamsFromRoute()")
+module("Tyro.Routes# getParamsFromRoute()")
 
 test("Getting the parameters from a route's path (and url) returns an object keyed by param names.", function() {
   var t = new Tyro.Routes();
@@ -178,7 +178,7 @@ test("Getting the parameters from a route's query string path does not include p
 })
 
 
-module("_triggerRoute()");
+module("Tyro.Routes# _triggerRoute()");
 
 test("Triggering a route that does not exist should set the hash to the pageNotFoundUrl (defined in the options property)", function() {
   var t = new Tyro.Routes();
@@ -234,7 +234,7 @@ test("Triggering a route should pass params object populated with querystring pa
   equals(fn1.args[0].qs.b, "2");  
 })
 
-module("_handleHashChange()");
+module("Tyro.Routes# _handleHashChange()");
 
 test("Handling the hash change should call _triggerRoute()", function() {
   var t = new Tyro.Routes();
@@ -245,7 +245,7 @@ test("Handling the hash change should call _triggerRoute()", function() {
   equals(t.triggerRoute.args[0], "hello", "The getHash() value was passed to _triggerRoute as the firsrt argument.");
 });
 
-module("_setupHashChange()", {
+module("Tyro.Routes# _setupHashChange()", {
   setup: function() {
     this.origHashChange = $.fn.hashchange;
     $.fn.hashchange = stubFn();
@@ -263,7 +263,7 @@ test("Setting up the hash change handler should call $('obj').hashchange", funct
   equals($.fn.hashchange.callCount, 2, "The method should have been called twice.");
 });
 
-module("_initControllers()");
+module("Tyro.Routes# _initControllers()");
 
 test("Initiating the controllers should loop through each controller constructor and create a new instance.", function() {
   var Controller1 = stubFn();
@@ -277,7 +277,7 @@ test("Initiating the controllers should loop through each controller constructor
   notEqual(Controller2.thisValue, window, "The this value is not window - i.e. a new instance was created.");
 });
 
-module("run()");
+module("Tyro.Routes# run()");
 
 test("Running the application should call _initControllers and _setupHashChange", function() {
   var t = new Tyro.Routes();
@@ -288,7 +288,7 @@ test("Running the application should call _initControllers and _setupHashChange"
   ok(t.setupHashChange.called, "The _setupHashChange method was called.");
 });
 
-module("addFilter()");
+module("Tyro.Routes# addFilter()");
 
 test("Adding a filter adds the callbacks to the filters object", function() {
   var t = new Tyro.Routes();

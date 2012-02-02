@@ -66,44 +66,67 @@ function stubFn(returnValue, arrayToPopulate) {
   return fn;
 }
 
+module("new Tyro.TreeNode()");
+
+test("When instantiating, parent should be set, and children registered.", function() {
+  var parent, child, child2;
+  parent = new Tyro.TreeNode(null);
+  child = new Tyro.TreeNode(parent);
+  child2 = new Tyro.TreeNode(parent);
+  //use ok() and  === rather than equal or strictEqual
+  //equal will infinitely recurse in the test
+  //strictEqual will infinitely recurse in its results, even if it passes
+  ok(child.parent === parent, "Child's parent should be the passed in parent");
+  ok(parent.children[0] === child, "Parent's first child should be the child we provided");
+  ok(child2.parent === parent, "Child2's parent should be the passed in parent");
+  ok(parent.children[1] === child2, "Parent's second child should be the child2 we provided");
+});
+
+test("When instantiating without an incorrectly typed parent argument, an error is thrown.", function() {
+  raises(function() {
+    var node = new Tyro.TreeNode([]); //pass an array in instead...
+  }, "raised");
+});
+
+module("new Tyro.AbstractView()");
+
+module("Tyro.AbstractView#teardownActiveDescendantLayouts");
+
+/*test("This should tear down all the active children layout views", function() {
+  var head, branch1, branch2, leaf1a, leaf1b, leaf2a,
+      tornDown = [];
+  function newView(parent, id) {
+    var v = new Tyro.AbstractView(parent, id);
+    v.doTeardown = function(){
+      tornDown.push(this);
+    };
+    return v;
+  }
+  head = newView(null,"h");
+  branch1 = newView(head, "1");
+  branch2 = newView(head, "2");
+  leaf1a = newView(branch1); //not providing an id makes it a normal view and not a layout
+  leaf1b = newView(branch1, "1b");
+  leaf2a = newView(branch2, "2a");
+
+  head.active = true;
+  branch1.active = true;
+  leaf1b.active = true;
+
+  branch1.teardownActiveDescendantLayouts();
+
+  equal(tornDown.length, 3);
+  //should be torn in reverse order
+  //use ok() and not equal, strictEqual to prevet recursion
+  ok(tornDown[0] === leaf1b);
+  ok(tornDown[1] === leaf1a);
+  ok(tornDown[2] === branch1);
+  //should also have removed leaf1a as it's not a layout
+  equal(branch1.children.length, 1);
+
+});*/
+
 module("new Tyro.PartialViewCollectionItem()");
-
-test("When instantiating without an 'id' argument an error is thrown.", function() {
-	raises(function() {
-		new Tyro.PartialViewCollectionItem(null, null, new fixtures.MockView("some container"));
-	}, "raised");
-});
-
-test("When instantiating with a 'parent' argument that is not null and is not a PartialViewCollectionItem an error is thrown.", function() {
-	raises(function() {
-		new Tyro.PartialViewCollectionItem("some id", {}, new fixtures.MockView("some container"));
-	}, "raised");
-});
-
-test("When instantiating with a 'view' argument that is not null and is not a valid view an error is thrown.", function() {
-	raises(function() {
-		new Tyro.PartialViewCollectionItem("some id", null, {});
-	}, "raised");
-
-  raises(function() {
-    new Tyro.PartialViewCollectionItem("some id", null, {render: function() {}});
-  }, "raised");
-
-  raises(function() {
-    new Tyro.PartialViewCollectionItem("some id", null, {render: function() {}, teardown: function() {}});
-  }, "raised");
-});
-
-test("When instantiating with a null 'parent' argument no error is thrown.", function() {
-	var item = new Tyro.PartialViewCollectionItem("some id", null, new fixtures.MockView("some container"));
-  equals(item instanceof Tyro.PartialViewCollectionItem, true);
-});
-
-test("When instantiating with a valid 'parent' argument no error is thrown.", function() {
-	var item = new Tyro.PartialViewCollectionItem("some id", null, new fixtures.MockView("some container"));
-  var item2 = new Tyro.PartialViewCollectionItem("some id2", item, new fixtures.MockView("some container2"));
-  equals(item2 instanceof Tyro.PartialViewCollectionItem, true);
-});
 
 module("Tyro.PartialViewCollectionItem#getActiveDescendantPartials()");
 
