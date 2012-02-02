@@ -158,7 +158,7 @@ test("Tyro.View.activate should call activate on inactive parents", function() {
 
 });
 
-test("Tyro.View.activate should cause all 'renderOnActivate' views to be 'active'", function() {
+test("Tyro.View.activate should cause all parent 'renderOnActivate' views to be 'active'", function() {
 	var views = fixtures.getCopyOfMain();
 
     views.campaigns.activate();
@@ -170,7 +170,24 @@ test("Tyro.View.activate should cause all 'renderOnActivate' views to be 'active
 
 });
 
-test("Tyro.View.activate should call teardown on views which will not be used", function(){
+test("Tyro.View.activate should cause all parent 'renderOnActivate' views to be rendered in the right order", function() {
+	var views = fixtures.getCopyOfMain();
+    sinon.spy(views.loggedIn, "render");
+    sinon.spy(views.setup, "render");
+
+    views.campaigns.activate();
+
+    ok(views.loggedIn.render.calledOnce);
+    ok(views.setup.render.calledOnce);
+    ok(views.loggedIn.render.calledBefore(views.setup.render));   
+});
+
+test("TODO: Tyro.View.activate should not reactivate/render active parent views", function(){
+	ok(false); //test not yet implemented
+});
+
+
+test("TODO: Tyro.View.activate should call teardown on views which will not be used", function(){
 	ok(false); //test not yet implemented
 });
 
@@ -209,6 +226,25 @@ test("When tearing down an view it should call teardown on it's descendants", fu
     ok(!views.loggedOut.teardown.called);
 });
 
+test("When tearing down an view it should internally teardown descendants in the right order", function() {
+	var views = fixtures.getCopyOfMain(),
+	    originalRemove = views.loggedIn.removeFromDom,
+	    a = [];
+	function spyAndRecord() {
+	  a.push(this);
+      originalRemove.apply(this, arguments);
+	}
+    sinon.stub(views.setup, "removeFromDom", spyAndRecord);
+    sinon.stub(views.campaigns, "removeFromDom", spyAndRecord);
+    views.campaigns._renderOnActivate = true; //cause render to be called so it becomes active (and hence teardown will be called)
+
+    views.campaigns.activate();
+    views.loggedIn.teardown();
+
+    ok(a[0] === views.campaigns);
+    ok(a[1] === views.setup);
+});
+
 module("Tyro.View#addChild()");
 
 
@@ -219,29 +255,23 @@ test("When adding a view with incorrect arguments an error is thrown.", function
 	}, "raised");
 });
 
-test("When adding a partial-view with argument that is not a Tyro.PartialViewCollectionItem an error is thrown.", function() {
-	var pc = new Tyro.PageController();
-	raises(function() {
-		pc.addItem({});
-	}, "raised");
-});
+test("When adding a valid view it should be added to it's parents children.", function() {
+	var parent = new Tyro.View(null),
+	    child = new Tyro.View(parent);
 
-test("When adding a partial-view with argument that is a Tyro.PartialViewCollectionItem no error is thrown.", function() {
-	var pc = new Tyro.PageController();
-	pc.addItem(fixtures.getCopyOfMain().loggedIn);
-  equals(true, true);
-});
+	ok(child.parent === parent);
+	ok(parent.children[0] === child);
 
+	parent = new Tyro.View(null);
+	child = new Tyro.View(null);
 
-test("When adding a valid partialView it should be added to the partialViews collection.", function() {
-	var pc = new Tyro.PageController();
-	pc.addItem(fixtures.getCopyOfMain().setup);
+	parent.addChild(child);
 	
-	equals(typeof pc.items["setup"], "object");
-	
+	ok(child.parent === parent);
+	ok(parent.children[0] === child);	
 });
 
-module("Tyro.PageController#getActiveItemsUnrelatedTo()");
+module("Tyro.ViewManager#should teardown unrelated views when a view is rendered");
 
 test("When no partial-view is specificed, an empty array should be returned.", function() {
 	var pc = new Tyro.PageController();	

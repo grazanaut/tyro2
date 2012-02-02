@@ -98,6 +98,7 @@ var Tyro = Tyro || {};
      * activates the view and calls callback when ready to render (eg when parents are rendered)
      */
     activate: function(callback) {
+      this.fire("Activating");
 
       if (this.isActive()) {
         isFunc(callback) && callback();
@@ -140,6 +141,9 @@ var Tyro = Tyro || {};
       if (!this.teardownCount) this.teardownCount = 0;
       this.teardownCount++;
 
+
+      this.inherited(); //tears down children, also sets active = false
+      
       if (isFunc(this.onBeforeTeardown)) {
         this.onBeforeTeardown();
         if (deprecationWarnings.onBeforeTeardown++ < 5) {
@@ -147,12 +151,10 @@ var Tyro = Tyro || {};
           console.warn("View(" + this.constructor.name + this.container + ")#onBeforeTeardown is deprecated - use beforeTeardown() instead");
         }
       }
-      this.beforeTeardown();
+      this.beforeTeardown();     
       this.teardownComponents(); //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance
       this._internalDoRemoveEvents(); //TODO: again, not entirely happy....as above
       this.removeFromDom();
-
-      this.inherited(); //also sets active = false
 
       if (!!this.parent) {
         this.parent.detach("Rendered", this._respondToActivationCallbacks, this);
@@ -171,6 +173,7 @@ var Tyro = Tyro || {};
         this._activating = false;
     },
     render: function(){
+      this.fire("Rendering");
       this.inherited();
     }
   });
