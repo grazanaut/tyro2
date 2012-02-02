@@ -37,8 +37,8 @@ Tyro.Routes.prototype.addController = function(fn) {
  * <br/><br/> Behind the scenes this initialises the controllers and sets up a hash change listener
  * @memberOf Tyro#
  */
-Tyro.Routes.prototype.run = function() {
-  this.initControllers();
+Tyro.Routes.prototype.run = function(config) {
+  this.initControllers(config);
   this.setupHashChange();
 }
 
@@ -47,9 +47,12 @@ Tyro.Routes.prototype.run = function() {
  * @memberOf Tyro#
  * @private
  */
-Tyro.Routes.prototype.initControllers = function() {
+Tyro.Routes.prototype.initControllers = function(config) {
   $.each(this.controllers, function(i, controller) {
-    if(controller) new controller();
+
+    console.log(controller)
+
+    if(controller) new controller(config);
   });
 }
 
