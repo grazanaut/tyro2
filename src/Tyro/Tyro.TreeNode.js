@@ -51,6 +51,9 @@ var Tyro = Tyro || {};
           throw new TypeError("Tyro: TreeNode: Parent must be null or type TreeNode");
         }
       }
+      if (!!this.parent && !p) {
+        throw new Error("Tyro: TreeNode: setParent() cannot be used to remove an existing parent (any head node must be instantiated as one and child nodes cannot become top-level/head)");
+      }
       if (this.parent === p) return; //prevent needless recursion
 
       if (!!p) {
@@ -72,7 +75,7 @@ var Tyro = Tyro || {};
      * Should be overridden in descendant classes to ensure that things such as teardown, etc are called
      * @abstract
      */
-    parentChanged: function(oldParent) {},
+    parentChanged: function(oldParent) { },
     /**
      * Gets the top level (head) of the partial view by traversing up the chain of parents
      * @public

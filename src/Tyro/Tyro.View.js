@@ -24,9 +24,9 @@ var Tyro = Tyro || {};
       };
 
   var View = Tyro.View = klass("View", AbstractView, {
-    constructor: function(parent) {
+    constructor: function(parent, options) {
       this.inherited(parent);
-      this._renderOnActivate = false; //default - ONLY set this to true IFF rendering is not asyncronous - i.e. we know that we dont need to load template, data, etc from ajax
+      this._renderOnActivate = !!(options && options.renderOnActivate); //ONLY set this to true IFF rendering is not asyncronous - i.e. we know that we dont need to load template, data, etc from ajax
       this._activating = false;
     },
     _respondToActivationCallbacks: function() {
@@ -72,15 +72,21 @@ var Tyro = Tyro || {};
       if (isNaN(index) || index < 0){ //i.e. if child not a child of this
         throw new Error("childActivating was not called with a view that is actually a child!");
       }
+
+      this._teardownOtherChildrenWithSameContainer(child);
+
+      this.fire("Rendered"); //lets observing children know we are ready
+    },
+    _teardownOtherChildrenWithSameContainer: function(child) {
+      var i, item;
       for (i = 0; this.children && i < this.children.length; i++) {
         item = this.children[i];
         //only teardown if it was in the same container, but is *not* the same child
-        if (item !== child && item.container === child.container) {
-          this.children[i].teardown();
+        if (item !== child && item.container === child.container && item.isActive()) {
+          item.teardown();
         }
       }
 
-      this.fire("Rendered"); //lets observing children know we are ready
     },
     /**
      * activates and renders parents if need be (also tears down "this" view)
@@ -98,6 +104,7 @@ var Tyro = Tyro || {};
      * activates the view and calls callback when ready to render (eg when parents are rendered)
      */
     activate: function(callback) {
+      this.fire("Activating");
 
       if (this.isActive()) {
         isFunc(callback) && callback();
@@ -140,6 +147,9 @@ var Tyro = Tyro || {};
       if (!this.teardownCount) this.teardownCount = 0;
       this.teardownCount++;
 
+
+      this.inherited(); //tears down children, also sets active = false
+      
       if (isFunc(this.onBeforeTeardown)) {
         this.onBeforeTeardown();
         if (deprecationWarnings.onBeforeTeardown++ < 5) {
@@ -147,12 +157,10 @@ var Tyro = Tyro || {};
           console.warn("View(" + this.constructor.name + this.container + ")#onBeforeTeardown is deprecated - use beforeTeardown() instead");
         }
       }
-      this.beforeTeardown();
+      this.beforeTeardown();     
       this.teardownComponents(); //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance
       this._internalDoRemoveEvents(); //TODO: again, not entirely happy....as above
       this.removeFromDom();
-
-      this.inherited(); //also sets active = false
 
       if (!!this.parent) {
         this.parent.detach("Rendered", this._respondToActivationCallbacks, this);
@@ -171,6 +179,11 @@ var Tyro = Tyro || {};
         this._activating = false;
     },
     render: function(){
+      this.fire("Rendering");
+      if (!!this.parent) {
+        //TODO: not entirely happy with this - calling some mutator of parent. Maybe we should have a "childRendering" method instead?
+        this.parent._teardownOtherChildrenWithSameContainer(this);
+      }
       this.inherited();
     }
   });

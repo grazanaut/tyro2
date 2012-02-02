@@ -17,6 +17,8 @@ TODO!!
 * Write more tests
 * Move some more platform-js-backoffice BaseView code into Tyro.View if it is generic enough
 * render method or similar should check that a parent view actually contains the container the child requires, somehow... (so child doesnt replace parent's parent,etc if wrong heirarchy defined)
+* move tests into correct modules (eg Tyro.View tests test things other than View)
+* edit this README (example at bottom is incorrect, and recommendation of jqt and $.pubsub is not necessarily our recommendation anymore, although pubsub/observer patterns certainly are)
 
 
 In slightly more detail

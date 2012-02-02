@@ -47,33 +47,64 @@ var Tyro = Tyro || {};
       this.active = false;
 
     },
-    _onceObservers: function(){
-      //create in a method to guard against non-constructor inheritance issues (ensure separate instance per object, not per prototype)
-      if (!this._onceObserversHash) {
-        this._onceObserversHash = {};
+    //Observable-style properties and methods
+    _ob: function(prop) {
+      if (!this[prop]) {
+        this[prop] = {};
       }
-      return this._onceObserversHash;
+      return this[prop];
     },
-    //Observable-style methods
-    once: function(message, callback, scope) {
-      var obs = this._onceObservers()[message] = this._onceObservers()[message] || [];
+    _observers: function() {
+      //create in a method to guard against non-constructor inheritance issues (ensure separate instance per object, not per prototype)
+      return this._ob("_observersHash");
+    },
+    _onceObservers: function() {
+      //create in a method to guard against non-constructor inheritance issues (ensure separate instance per object, not per prototype)
+      return this._ob("_onceObserversHash");
+    },
+    _internalAddObserver: function(hash, message, callback, scope) {
+      var obs = hash[message] = hash[message] || [];
       obs.push({
         callback: callback,
         scope: scope
       }); 
     },
+    // Observes and then removes the observer once the event has triggered
+    once: function(message, callback, scope) {
+      this._internalAddObserver(this._onceObservers(), message, callback, scope);
+    },
+    on: function(message, callback, scope) {
+      this._internalAddObserver(this._observers(), message, callback, scope);
+    },
     fire: function(message) {
-      var obs = this._onceObservers()[message],
-          ob;
+      var obs, ob, i;
+      obs = this._onceObservers()[message];
       if (obs instanceof Array) {
         while (ob = obs.shift()) {
-          ob.callback.call(ob.scope);
+          ob.callback.call(ob.scope, this);
         }
       }
-      //repeat for non-one-time observers if need be
+      obs = this._observers()[message];
+      if (obs instanceof Array) {
+        for (i = 0; i < obs.length; i++) {
+          obs[i].callback.call(obs[i].scope, this);
+        }
+      }
     },
     detach: function(message, callback, scope) {
-      var obs, i;
+      function _detatch(obs) {
+        var i;
+        i = (obs && obs.length) || 0;
+        while (i--) {
+          if (
+              (!!scope && !!callback && obs[i].scope === scope && obs[i].callback === callback) ||
+              (!!scope && !callback && obs[i].scope === scope) ||
+              (!scope && !!callback && obs[i].callback === callback)
+             ) {
+            obs.splice(i,1);
+          }
+        }
+      }
       if (typeof message !== "string") {
         throw new Error("Tyro.AbstractView#detach: message is a mandatory argument!");
       }
@@ -81,18 +112,8 @@ var Tyro = Tyro || {};
         scope = callback;
         callback = null;
       }
-      obs = this._onceObservers()[message];
-      i = (obs && obs.length) || 0;
-      while (i--) {
-        if (
-            (!!scope && !!callback && obs[i].scope === scope && obs[i].callback === callback) ||
-            (!!scope && !callback && obs[i].scope === scope) ||
-            (!scope && !!callback && obs[i].callback === callback)
-           ) {
-          obs.splice(i,1);
-        }
-      }
-      //repeat for non-one-time observers if need be
+      _detatch(this._onceObservers()[message]);
+      _detatch(this._observers()[message]);
     },
     isLayout: function() {
       return !!this.id; //considered a layout if it has an id
@@ -111,6 +132,7 @@ var Tyro = Tyro || {};
      */
     parentChanged: function(oldParent) {
       this.teardown();
+      this.fire("ParentChanged");
     },
     /**
      * @abstract
