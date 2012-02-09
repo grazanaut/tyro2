@@ -9,7 +9,7 @@ var Tyro = Tyro || {};
    * Import utility methods and namespaces into the local scope
    * //TODO: find jsDoc tags for importing namespaces and/or methods into scope
    */
-  var 
+  var
       //Namespaces
       Utils = Tyro.Utils,
       //Klasses
@@ -45,20 +45,20 @@ var Tyro = Tyro || {};
     _addActivationCallback: function(callback) {
       if (!this._activationCallbacks) {
         //dont create in constructor - guard against inheritance types which may attach this to prototype rather than instance
-        this._activationCallbacks = []; 
+        this._activationCallbacks = [];
       }
       this._activationCallbacks.push(callback);
-      this._logIt("added new callback: " + callback.toString().replace(/(\r\n|\n|\r)/gm," "));
+      //this._logIt("added new callback: " + callback.toString().replace(/(\r\n|\n|\r)/gm," "));
 
     },
     _logIt: function(m){
-      console.log(this._nodeDepthString() + this.constructor.name + " (container: '" + this.container + "'): " + m);  
+      console.log(this._nodeDepthString() + this.constructor.name + " (container: '" + this.container + "'): " + m);
     },
     isActivating: function() {
       return (this._activating || (this._activationCallbacks && this._activationCallbacks.length > 0));
     },
     /**
-     * 
+     *
      */
     childActivating: function(child) {
 
@@ -78,8 +78,9 @@ var Tyro = Tyro || {};
       this.fire("Rendered"); //lets observing children know we are ready
     },
     _teardownOtherChildrenWithSameContainer: function(child) {
-      var i, item;
-      for (i = 0; this.children && i < this.children.length; i++) {
+      var i, item,
+          len = !!this.children ? this.children.length: -1;
+      for (i = 0; i < len; i++) {
         item = this.children[i];
         //only teardown if it was in the same container, but is *not* the same child
         if (item !== child && item.container === child.container && item.isActive()) {
@@ -98,6 +99,7 @@ var Tyro = Tyro || {};
       if (!this.parent) {
         throw new Error("activateAndRenderParents called with null parent!");
       }
+      //TODO: consider whether events should be used here rather than a direct call by child
       this.parent.childActivating(this);
     },
     /**
@@ -149,7 +151,7 @@ var Tyro = Tyro || {};
 
 
       this.inherited(); //tears down children, also sets active = false
-      
+
       if (isFunc(this.onBeforeTeardown)) {
         this.onBeforeTeardown();
         if (deprecationWarnings.onBeforeTeardown++ < 5) {
@@ -157,7 +159,7 @@ var Tyro = Tyro || {};
           console.warn("View(" + this.constructor.name + this.container + ")#onBeforeTeardown is deprecated - use beforeTeardown() instead");
         }
       }
-      this.beforeTeardown();     
+      this.beforeTeardown();
       this.teardownComponents(); //TODO: not entirely sure this should be here- put back into GD once we have proper inheritance
       this._internalDoRemoveEvents(); //TODO: again, not entirely happy....as above
       this.removeFromDom();
@@ -181,7 +183,7 @@ var Tyro = Tyro || {};
     render: function(){
       this.fire("Rendering");
       if (!!this.parent) {
-        //TODO: not entirely happy with this - calling some mutator of parent. Maybe we should have a "childRendering" method instead?
+        //TODO: not entirely happy with this - calling some mutator of parent. Maybe we should have a "childRendering" method instead, or an event trigger?
         this.parent._teardownOtherChildrenWithSameContainer(this);
       }
       this.inherited();

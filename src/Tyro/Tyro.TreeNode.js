@@ -9,7 +9,7 @@ var Tyro = Tyro || {};
    * Import utility methods and namespaces into the local scope
    * //TODO: find jsDoc tags for importing namespaces and/or methods into scope
    */
-  var 
+  var
       //Namespaces
       Utils = Tyro.Utils,
       //Functions
@@ -171,7 +171,8 @@ var Tyro = Tyro || {};
      * @returns {Integer} index, or NaN if not found
      */
     indexOfChild: function(child) {
-      for (var i = 0; !!this.children && i < this.children.length; i++) {
+      var len = !!this.children ? this.children.length : -1;
+      for (var i = 0; i < len; i++) {
         if (this.children[i] === child) {
           return i;
         }
@@ -200,15 +201,17 @@ var Tyro = Tyro || {};
     //methods purely for debugging
     _nodeDepth: function() {
       var i = 0;
-      this.traverseUpwards(function(){ i++ });
+      this.traverseUpwards(function(){ i++; });
       return i;
     },
     _nodeDepthString: function() {
       var s = "",
           i = this._nodeDepth();
-      while(i--) s += "    ";
-      return s;      
-    } 
+      while(i--) {
+        s += "    ";
+      }
+      return s;
+    }
   });
 
 }());

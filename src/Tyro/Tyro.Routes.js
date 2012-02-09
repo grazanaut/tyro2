@@ -7,7 +7,7 @@ var Tyro = Tyro || {};
  * <br/><br/> - run() which effectively starts the app by listening for hash changes and creating new
  * instances of the controllers.
  * <br/><br/> - setHash() which is a helper function to set the hash part of the url
- * @constructor 
+ * @constructor
  * @class
  * @name Tyro
  * @param {Object} options The options for the instance
@@ -50,7 +50,7 @@ Tyro.Routes.prototype.run = function(config) {
 Tyro.Routes.prototype.initControllers = function(config) {
   $.each(this.controllers, function(i, controller) {
 
-    console.log(controller)
+    //console.log(controller)
 
     if(controller) new controller(config);
   });
@@ -100,23 +100,23 @@ Tyro.Routes.prototype.getHash = function() {
  */
 Tyro.Routes.prototype.triggerRoute = function(url) {
   var matches = null, urlFound = false;
-  
+
   // loop through all the routes
   $.each(this.routes, $.proxy(function(i, route) {
     matches = url.match(route.regex);
-    // if the route was matched        
-    if(matches) {   
-      urlFound = true;   
+    // if the route was matched
+    if(matches) {
+      urlFound = true;
       return this.handleRouteFound(url, route, matches);
     }
   }, this));
-  
+
   // if the url has not been found (matched to a route)
   if(!urlFound && this.options.pageNotFoundUrl) {
     // go to the page not found url
     this.setHash(this.options.pageNotFoundUrl);
   }
-  
+
 }
 
 /**
@@ -132,14 +132,14 @@ Tyro.Routes.prototype.triggerRoute = function(url) {
  * @return {Boolean}
  */
 Tyro.Routes.prototype.handleRouteFound = function(url, route, matches) {
-  
+
   var params = this.getParamsFromRoute(route.route, url);
-  
+
   // tell the routeMatched callback if present about the route
   if(this.options.routeMatched) {
     this.options.routeMatched(url);
   }
-  
+
   //matches = matches.splice(1);
 
   // check the before filters before running the route callbacks
@@ -153,7 +153,7 @@ Tyro.Routes.prototype.handleRouteFound = function(url, route, matches) {
     });
   }
   if(!beforeFiltersSuccess) return false;
-  
+
   // we now want to loop through generic filters that match the matched route
   // to see if we need to do anything before running the route callback
   // useful for setting up generic stuff
@@ -162,21 +162,21 @@ Tyro.Routes.prototype.handleRouteFound = function(url, route, matches) {
     filterMatches = url.match(filter.regex);
     if(filterMatches) {
       this.handleFilterFound(url, filter, filterMatches);
-    }    
+    }
   }, this));
-  
+
   // run each callback against the route
-  $.each(route.callbacks, function(i, fn) {    
+  $.each(route.callbacks, function(i, fn) {
     fn.call(null, params);
   });
-  
+
   // check the after filters after running the route callbacks
   if(route.afterFilters) {
     $.each(route.afterFilters, function(i, fn) {
       fn.call(null, params);
     });
   }
-  
+
   this.previousUrl = url;
   return false;
 }
@@ -192,18 +192,18 @@ Tyro.Routes.prototype.handleFilterFound = function(url, filter, matches) {
  * @function
  * @public
  * @param {String} route The route i.e. "/my/url"
- * @param {Function} callback 
+ * @param {Function} callback
  */
 Tyro.Routes.prototype.addRoute = function(route, callback, options) {
 
 
   if(route.substr(-1) == '/') route = route.substr(0, route.length-1);
-  
+
   options = $.extend({
     beforeFilters: [],
     afterFilters: []
   }, options);
-  
+
   if(typeof route !== "string") {
     throw new TypeError("Tyro: addRoute: route should be a string");
   }
@@ -222,7 +222,7 @@ Tyro.Routes.prototype.addRoute = function(route, callback, options) {
   route = this.routes[route];
   route.callbacks.push(callback);
 }
-  
+
 /**
  * This will take a route
  * i.e. /campaigns
@@ -242,9 +242,9 @@ Tyro.Routes.prototype.addRoute = function(route, callback, options) {
  *
  */
 Tyro.Routes.prototype.routeToRegExp = function(route) {
-  
+
   if(typeof route !== "string") return route;
-  
+
   // replace last / with empty string i.e. remove final slash if present
   route = route.replace(/\/$/, "");
 
@@ -267,13 +267,13 @@ Tyro.Routes.prototype.routeToRegExp = function(route) {
  * @returns {Object} The object keyed by route param names
  */
 Tyro.Routes.prototype.getParamsFromRoute = function(route, url) {
-  
+
   var urlParams = {};
   var paramsMatcher = /:([\w\d]+)/g;
   paramsMatcher.lastIndex = 0; // ie bug - check out sammy
   var pathReplacer = "([^\/]+)";
   var queryStringMatcher = /\/?\?([^#]*)$/;
-  
+
   // strip querystring but store key valued object ready to merge later
   // after we have converted the regular url params in an object
   var qs = url.match(queryStringMatcher);
@@ -310,7 +310,7 @@ Tyro.Routes.prototype.getParamsFromRoute = function(route, url) {
       }
     });
   }
-  
+
   return { url: urlParams, qs: qs, all: $.extend({}, urlParams, qs) };
 }
 
@@ -329,7 +329,7 @@ Tyro.Routes.prototype.getParamsFromRoute = function(route, url) {
  * t.addFilter("/some/place/*", function() {});
  * // so when the following route is matched, the filter callbacks will run first
  * t.addRoute("/some/place/123/456");
- * 
+ *
  */
 Tyro.Routes.prototype.addFilter = function(route, callback) {
   if(!this.filters[route]) {
