@@ -20,6 +20,7 @@ TODO!!
 * move tests into correct modules (eg Tyro.View tests test things other than View)
 * edit this README (example at bottom is incorrect, and recommendation of jqt and $.pubsub is not necessarily our recommendation anymore, although pubsub/observer patterns certainly are)
 * Investigate gilles' suggestion to use similar build configuration as jQuery, eg: https://github.com/jquery/jquery/blob/master/src/exports.js
+* Look at the TODOs in the controller. We need to refactor the app to stop referring to views by name/id/index and have direct references instead, before we can remove the legacy interfaces there
 
 
 In slightly more detail
