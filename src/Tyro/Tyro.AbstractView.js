@@ -9,7 +9,7 @@ var Tyro = Tyro || {};
    * Import utility methods and namespaces into the local scope
    * //TODO: find jsDoc tags for importing namespaces and/or methods into scope
    */
-  var 
+  var
       //Namespaces
       Utils = Tyro.Utils,
       //Klasses
@@ -67,7 +67,7 @@ var Tyro = Tyro || {};
       obs.push({
         callback: callback,
         scope: scope
-      }); 
+      });
     },
     // Observes and then removes the observer once the event has triggered
     once: function(message, callback, scope) {
@@ -164,21 +164,6 @@ var Tyro = Tyro || {};
       this.active = false; //todo: should this be before or after doTeardown?
       //then self
       this.doTeardown(); //TODO: may not be needed if inheritance used properly and teardown not clobbered
-    },
-    /** 
-     * Tears down any 
-     * @public
-     * @function
-     * @param {String} container
-     */
-    teardownDescendantsInContainer: function(container) {
-      throw new Error("Safer way to do this? - we need to make sure that only child views can replace other children?");
-      for (var i = 0; this.children && i < this.children.length; i++) {
-        if (this.children.container === container) {
-          this.children[i].teardown();
-          return;
-        }
-      }
     }
 
   });
