@@ -52,7 +52,7 @@ var Tyro = Tyro || {};
 
     },
     _logIt: function(m){
-      console.log(this._nodeDepthString() + this.constructor.name + " (container: '" + this.container + "'): " + m);
+      //console.log(this._nodeDepthString() + this.constructor.name + " (container: '" + this.container + "'): " + m);
     },
     isActivating: function() {
       return (this._activating || (this._activationCallbacks && this._activationCallbacks.length > 0));
@@ -156,7 +156,8 @@ var Tyro = Tyro || {};
         this.onBeforeTeardown();
         if (deprecationWarnings.onBeforeTeardown++ < 5) {
           //arbitrary number of warnings, but lets not hassle people *too* much...
-          console.warn("View(" + this.constructor.name + this.container + ")#onBeforeTeardown is deprecated - use beforeTeardown() instead");
+          //TODO: turn this back on from time-to-time to check how things are progressing in the backoffice
+          //console.warn("View(" + this.constructor.name + this.container + ")#onBeforeTeardown is deprecated - use beforeTeardown() instead");
         }
       }
       this.beforeTeardown();

@@ -102,9 +102,10 @@ var Tyro = Tyro || {};
      */
     traverseDescendants: function(callbacks) {
       var cbs = callbacks || {},
-          child;
+          len = !!this.children ? this.children.length : -1,
+          child, i;
 
-      for (var i = 0; !!this.children && i < this.children.length; i++ ) {
+      for (i = 0; i < len; i++ ) {
         child = this.children[i];
         if (isFunc(cbs.before) && cbs.before(child) === false) return false;
         if (this.children[i].traverseDescendants(cbs)) return false;
@@ -171,8 +172,9 @@ var Tyro = Tyro || {};
      * @returns {Integer} index, or NaN if not found
      */
     indexOfChild: function(child) {
-      var len = !!this.children ? this.children.length : -1;
-      for (var i = 0; i < len; i++) {
+      var len = !!this.children ? this.children.length : -1,
+          i;
+      for (i = 0; i < len; i++) {
         if (this.children[i] === child) {
           return i;
         }
