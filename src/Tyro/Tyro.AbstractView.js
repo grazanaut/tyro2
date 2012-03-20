@@ -133,7 +133,23 @@ var Tyro = Tyro || {};
     parentChanged: function(oldParent) {
       this.teardown();
       this.fire("ParentChanged");
+      if (oldParent) {
+        oldParent.childRemoved(this);
+      }
+      if (this.parent) {
+        this.parent.childAdded(this);
+      }
     },
+    /**
+     * @abstract
+     * Called when a parent has been notified that a child has been added
+     */
+    childAdded: function(child) {  },
+    /**
+     * @abstract
+     * Called when a parent has been notified that a child has been removed
+     */
+    childRemoved: function(child) {  },
     /**
      * @abstract
      * Child Classes should override this method to implement teardown behaviours

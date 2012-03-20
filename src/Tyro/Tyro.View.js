@@ -58,6 +58,32 @@ var Tyro = Tyro || {};
       return (this._activating || (this._activationCallbacks && this._activationCallbacks.length > 0));
     },
     /**
+     * Called when a parent has been notified that a child has been added
+     */
+    childAdded: function(child) {
+      child.on("Rendered", this._childRendered, this);
+      child.on("Updated", this._childUpdated, this);
+    },
+    /**
+     * Called when a parent has been notified that a child has been removed
+     */
+    childRemoved: function(child) {
+      child.detach("Rendered", this._childRendered, this);
+      child.detach("Updated", this._childUpdated, this);
+    },
+    /**
+     * Called when a child has been rendered
+     */
+    _childRendered: function(child) {
+      this.fire("ChildRendered");
+    },
+    /**
+     * Called when a child has been fired the updated event (use when layout/size/content changes, etc)
+     */
+    _childUpdated: function(child) {
+      this.fire("ChildUpdated");
+    },
+    /**
      *
      */
     childActivating: function(child) {
@@ -176,18 +202,31 @@ var Tyro = Tyro || {};
       this.afterTeardown();
     },
     _internalDoRender: function() {
-        this.active = true; //prevent infinite recursion/iteration
-        this.render();
-        this.fire("Rendered");//TODO: move into render() method?
-        this._activating = false;
+      this.render();
     },
+    /**
+     * Renders the view
+     * Note that any override of this *must* start by calling this._rendering()
+     * and finish by calling this._doneRender()
+     * For Asynchronous overrides of this method, _doneRender() should be called
+     * after the actual render (i.e. in the async callback)
+     */
     render: function(){
+      this._rendering();
+      this.inherited();
+      this._doneRender();
+    },
+    _doneRender: function() {
+      this.fire("Rendered");
+      this._activating = false;
+    },
+    _rendering: function() {
       this.fire("Rendering");
+      this.active = true; //prevent infinite recursion/iteration
       if (!!this.parent) {
         //TODO: not entirely happy with this - calling some mutator of parent. Maybe we should have a "childRendering" method instead, or an event trigger?
         this.parent._teardownOtherChildrenWithSameContainer(this);
       }
-      this.inherited();
     }
   });
 
