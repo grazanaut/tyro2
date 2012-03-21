@@ -62,26 +62,18 @@ var Tyro = Tyro || {};
      */
     childAdded: function(child) {
       child.on("Rendered", this._childRendered, this);
-      child.on("Updated", this._childUpdated, this);
     },
     /**
      * Called when a parent has been notified that a child has been removed
      */
     childRemoved: function(child) {
       child.detach("Rendered", this._childRendered, this);
-      child.detach("Updated", this._childUpdated, this);
     },
     /**
      * Called when a child has been rendered
      */
     _childRendered: function(child) {
       this.fire("ChildRendered");
-    },
-    /**
-     * Called when a child has been fired the updated event (use when layout/size/content changes, etc)
-     */
-    _childUpdated: function(child) {
-      this.fire("ChildUpdated");
     },
     /**
      *
